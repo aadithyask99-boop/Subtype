@@ -103,7 +103,7 @@ Context:
 Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
 
   const openRouterBody = {
-    model: 'google/gemini-2.0-flash-exp:free',
+    model: 'qwen/qwen2.5-vl-72b-instruct:free',
     stream: true,
     messages: [
       {
@@ -134,7 +134,7 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://subtype.vercel.app',
+        'HTTP-Referer': 'https://subtype.vercel.app/',
         'X-Title': 'Dianomi Subtype Tool'
       },
       body: JSON.stringify(openRouterBody)
