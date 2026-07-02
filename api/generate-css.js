@@ -100,7 +100,11 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
 
     if (!upstream.ok) {
       const errText = await upstream.text();
-      return res.status(upstream.status).json({ error: `OpenRouter error: ${upstream.status}`, detail: errText });
+      let message = `OpenRouter error: ${upstream.status}`;
+      if (upstream.status === 429) {
+        message = 'Rate limited by OpenRouter free tier (20 req/min, or 50/day on a $0 account). Wait a minute and retry, or add $10+ credit to raise the daily cap to 1000.';
+      }
+      return res.status(upstream.status).json({ error: message, detail: errText });
     }
 
     // Stream SSE back to client
