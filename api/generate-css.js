@@ -72,7 +72,7 @@ Context:
 Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
 
   const openRouterBody = {
-    model: 'meta-llama/llama-4-maverick:free',
+    model: 'google/gemma-4-31b-it:free',
     stream: true,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
