@@ -546,9 +546,17 @@ async function generateCSS(){
   var ssBtn=document.getElementById('ss-btn');
   btn.disabled=true;
   btn.textContent='Generating…';
-  status.textContent='Sending to MiniMax-M3…';
   ssBtn.classList.add('loading');
   ssBtn.textContent='✦ Generating…';
+
+  // Animated progress dots while waiting
+  var dots = 0;
+  var progressTimer = setInterval(function(){
+    dots = (dots + 1) % 4;
+    var elapsed = Math.round((Date.now() - startTime) / 1000);
+    status.textContent = 'Analysing screenshot' + '.'.repeat(dots) + ' (' + elapsed + 's)';
+  }, 500);
+  var startTime = Date.now();
 
   // Abort controller — cancel after 55s if no response
   var controller = new AbortController();
@@ -570,6 +578,7 @@ async function generateCSS(){
     });
 
     clearTimeout(timeoutId);
+    clearInterval(progressTimer);
 
     if(!resp.ok){
       var err=await resp.json();
@@ -599,6 +608,7 @@ async function generateCSS(){
             if(delta){
               cssBuffer+=delta;
               setCSS(cssBuffer);
+              status.textContent='CSS received (' + cssBuffer.length + ' chars)…';
             }
           }catch(e){}
         }
@@ -611,6 +621,7 @@ async function generateCSS(){
 
   }catch(e){
     clearTimeout(timeoutId);
+    clearInterval(progressTimer);
     if(e.name === 'AbortError'){
       status.textContent='Timed out after 55s — try a simpler screenshot or check Vercel logs';
     } else {

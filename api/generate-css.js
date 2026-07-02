@@ -97,13 +97,12 @@ Context:
 
 Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
 
-  // NVIDIA integrate.api.nvidia.com — MiniMax-M3 multimodal payload shape
   const nvidiaBody = {
     model: 'minimaxai/minimax-m3',
     max_tokens: 3000,
     temperature: 0.2,
     top_p: 0.95,
-    stream: true,
+    stream: false,
     messages: [
       {
         role: 'user',
@@ -121,99 +120,31 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Accept': 'text/event-stream'
+        'Accept': 'application/json'
       },
       body: JSON.stringify(nvidiaBody)
     });
 
     if (!upstream.ok) {
       const errText = await upstream.text();
-      return res.status(upstream.status).json({ error: `NVIDIA API error: ${upstream.status}`, detail: errText });
+      return res.status(upstream.status).json({
+        error: `NVIDIA API error: ${upstream.status}`,
+        detail: errText
+      });
     }
 
+    const data = await upstream.json();
+    const content = data?.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return res.status(500).json({ error: 'No content in response', raw: JSON.stringify(data) });
+    }
+
+    // Send as single SSE event so client parser works unchanged
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
-
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let finishReason = null;
-    let lastContentAt = Date.now();
-    const CONTENT_TIMEOUT_MS = 8000;  // if no new CSS token for 8s, assume done
-    const MAX_TOTAL_MS = 50000;       // hard cap at 50s total
-    const startedAt = Date.now();
-
-    // Poll reader with content-aware timeout
-    while (true) {
-      const elapsed = Date.now() - startedAt;
-      const sinceLastContent = Date.now() - lastContentAt;
-
-      // Hard cap
-      if (elapsed > MAX_TOTAL_MS) {
-        console.log('Max total time reached, closing');
-        break;
-      }
-
-      // No new content token for 8s — NVIDIA is done or stalled
-      if (sinceLastContent > CONTENT_TIMEOUT_MS) {
-        console.log('No content for 8s, closing stream');
-        break;
-      }
-
-      const remaining = Math.min(
-        CONTENT_TIMEOUT_MS - sinceLastContent,
-        MAX_TOTAL_MS - elapsed
-      );
-
-      let done, value;
-      try {
-        const result = await Promise.race([
-          reader.read(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('idle')), remaining + 100))
-        ]);
-        done = result.done;
-        value = result.value;
-      } catch (e) {
-        // Idle timeout fired — break and send DONE
-        break;
-      }
-
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed === ':') continue;
-
-        if (trimmed === 'data: [DONE]') {
-          finishReason = 'done';
-          break;
-        }
-
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const parsed = JSON.parse(trimmed.slice(6));
-            const delta = parsed.choices?.[0]?.delta?.content;
-            const reason = parsed.choices?.[0]?.finish_reason;
-
-            if (reason) { finishReason = reason; }
-
-            if (delta) {
-              lastContentAt = Date.now(); // reset idle timer on real content
-              res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`);
-            }
-          } catch (e) { /* unparseable, skip */ }
-        }
-      }
-
-      if (finishReason) break;
-    }
-
+    res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
     res.write('data: [DONE]\n\n');
     return res.end();
 
