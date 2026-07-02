@@ -119,7 +119,7 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
 
   try {
     const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,24 +135,41 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
       });
     }
 
-    const data = await upstream.json();
-    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!content) {
-      return res.status(500).json({ error: 'No content in Gemini response', raw: JSON.stringify(data) });
-    }
-
-    // Strip any markdown fences the model adds despite instructions
-    const css = content
-      .replace(/^```css\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/\s*```$/i, '')
-      .trim();
-
-    // Return as SSE so client parser works unchanged
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
-    res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: css } }] })}\n\n`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            // Gemini streaming format: candidates[0].content.parts[0].text
+            const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              // Strip markdown fences if present in first chunk
+              const clean = text.replace(/^```css\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+              res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: clean } }] })}\n\n`);
+            }
+          } catch (e) { /* skip unparseable */ }
+        }
+      }
+    }
+
     res.write('data: [DONE]\n\n');
     return res.end();
 
