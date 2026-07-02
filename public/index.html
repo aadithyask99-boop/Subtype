@@ -546,14 +546,21 @@ async function generateCSS(){
   var ssBtn=document.getElementById('ss-btn');
   btn.disabled=true;
   btn.textContent='Generating…';
-  status.textContent='Sending to Gemini…';
+  status.textContent='Sending to MiniMax-M3…';
   ssBtn.classList.add('loading');
   ssBtn.textContent='✦ Generating…';
+
+  // Abort controller — cancel after 55s if no response
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){
+    controller.abort();
+  }, 55000);
 
   try{
     var resp=await fetch('/api/generate-css',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
+      signal: controller.signal,
       body:JSON.stringify({
         imageBase64:pendingImageBase64,
         mimeType:pendingMimeType,
@@ -561,6 +568,8 @@ async function generateCSS(){
         order:S.order
       })
     });
+
+    clearTimeout(timeoutId);
 
     if(!resp.ok){
       var err=await resp.json();
@@ -570,7 +579,6 @@ async function generateCSS(){
       return;
     }
 
-    // Stream SSE response into CSS editor
     var reader=resp.body.getReader();
     var decoder=new TextDecoder();
     var cssBuffer='';
@@ -602,7 +610,12 @@ async function generateCSS(){
     setTimeout(function(){closeModal();},1200);
 
   }catch(e){
-    status.textContent='Error: '+e.message;
+    clearTimeout(timeoutId);
+    if(e.name === 'AbortError'){
+      status.textContent='Timed out after 55s — try a simpler screenshot or check Vercel logs';
+    } else {
+      status.textContent='Error: '+e.message;
+    }
   } finally {
     btn.disabled=false;btn.textContent='Generate CSS';
     ssBtn.classList.remove('loading');ssBtn.textContent='✦ Screenshot → CSS';

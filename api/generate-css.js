@@ -136,6 +136,19 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
+    const contentType = upstream.headers.get('content-type') || '';
+
+    // Some models return plain JSON even when stream:true is set
+    if (!contentType.includes('text/event-stream')) {
+      const data = await upstream.json();
+      const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (content) {
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+        res.write('data: [DONE]\n\n');
+      }
+      return res.end();
+    }
+
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
 
