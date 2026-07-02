@@ -72,7 +72,7 @@ Context:
 Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
 
   const openRouterBody = {
-    model: 'qwen/qwen2.5-vl-72b-instruct',
+    model: 'qwen/qwen2.5-vl-72b-instruct:free',
     stream: true,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
