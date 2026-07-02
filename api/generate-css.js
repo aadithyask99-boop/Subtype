@@ -54,8 +54,8 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { return res.status(200).end(); }
   if (req.method !== 'POST') { return res.status(405).json({ error: 'Method not allowed' }); }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) { return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' }); }
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) { return res.status(500).json({ error: 'NVIDIA_API_KEY not configured' }); }
 
   const { imageBase64, mimeType = 'image/png', numAds = 1, order = 'provider,text' } = req.body || {};
 
@@ -71,40 +71,38 @@ Context:
 
 Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
 
-  const openRouterBody = {
-    model: 'google/gemma-4-31b-it:free',
+  // NVIDIA integrate.api.nvidia.com — MiniMax-M3 multimodal payload shape
+  const nvidiaBody = {
+    model: 'minimaxai/minimax-m3',
+    max_tokens: 8192,
+    temperature: 0.2,
+    top_p: 0.95,
     stream: true,
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
-          { type: 'text', text: userPrompt }
+          { type: 'text', text: SYSTEM_PROMPT + '\n\n' + userPrompt },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } }
         ]
       }
     ]
   };
 
   try {
-    const upstream = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const upstream = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://subtype.vercel.app/',
-        'X-Title': 'Dianomi Subtype Tool'
+        'Accept': 'text/event-stream'
       },
-      body: JSON.stringify(openRouterBody)
+      body: JSON.stringify(nvidiaBody)
     });
 
     if (!upstream.ok) {
       const errText = await upstream.text();
-      let message = `OpenRouter error: ${upstream.status}`;
-      if (upstream.status === 429) {
-        message = 'Rate limited by OpenRouter free tier (20 req/min, or 50/day on a $0 account). Wait a minute and retry, or add $10+ credit to raise the daily cap to 1000.';
-      }
-      return res.status(upstream.status).json({ error: message, detail: errText });
+      return res.status(upstream.status).json({ error: `NVIDIA API error: ${upstream.status}`, detail: errText });
     }
 
     // Stream SSE back to client
