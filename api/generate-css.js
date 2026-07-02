@@ -139,24 +139,44 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let cssAccumulated = '';
     let finishReason = null;
+    let lastContentAt = Date.now();
+    const CONTENT_TIMEOUT_MS = 8000;  // if no new CSS token for 8s, assume done
+    const MAX_TOTAL_MS = 50000;       // hard cap at 50s total
+    const startedAt = Date.now();
 
+    // Poll reader with content-aware timeout
     while (true) {
-      // Per-chunk timeout — if NVIDIA stops sending for 20s, bail out
-      const chunkPromise = reader.read();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('chunk_timeout')), 20000)
+      const elapsed = Date.now() - startedAt;
+      const sinceLastContent = Date.now() - lastContentAt;
+
+      // Hard cap
+      if (elapsed > MAX_TOTAL_MS) {
+        console.log('Max total time reached, closing');
+        break;
+      }
+
+      // No new content token for 8s — NVIDIA is done or stalled
+      if (sinceLastContent > CONTENT_TIMEOUT_MS) {
+        console.log('No content for 8s, closing stream');
+        break;
+      }
+
+      const remaining = Math.min(
+        CONTENT_TIMEOUT_MS - sinceLastContent,
+        MAX_TOTAL_MS - elapsed
       );
 
       let done, value;
       try {
-        const result = await Promise.race([chunkPromise, timeoutPromise]);
+        const result = await Promise.race([
+          reader.read(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('idle')), remaining + 100))
+        ]);
         done = result.done;
         value = result.value;
       } catch (e) {
-        // Chunk timeout — stream is stuck, send what we have and close
-        console.log('Chunk timeout — sending accumulated CSS and closing');
+        // Idle timeout fired — break and send DONE
         break;
       }
 
@@ -164,11 +184,11 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep incomplete last line
+      buffer = lines.pop();
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || trimmed === ':' ) continue;
+        if (!trimmed || trimmed === ':') continue;
 
         if (trimmed === 'data: [DONE]') {
           finishReason = 'done';
@@ -178,32 +198,22 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
         if (trimmed.startsWith('data: ')) {
           try {
             const parsed = JSON.parse(trimmed.slice(6));
-            const delta = parsed.choices &&
-                          parsed.choices[0] &&
-                          parsed.choices[0].delta &&
-                          parsed.choices[0].delta.content;
+            const delta = parsed.choices?.[0]?.delta?.content;
+            const reason = parsed.choices?.[0]?.finish_reason;
 
-            // Check finish_reason
-            const reason = parsed.choices &&
-                           parsed.choices[0] &&
-                           parsed.choices[0].finish_reason;
-            if (reason) finishReason = reason;
+            if (reason) { finishReason = reason; }
 
             if (delta) {
-              cssAccumulated += delta;
-              // Forward the chunk to client in same SSE format
+              lastContentAt = Date.now(); // reset idle timer on real content
               res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`);
             }
-          } catch (e) {
-            // unparseable line — skip
-          }
+          } catch (e) { /* unparseable, skip */ }
         }
       }
 
       if (finishReason) break;
     }
 
-    // Always send DONE so client knows stream is finished
     res.write('data: [DONE]\n\n');
     return res.end();
 
