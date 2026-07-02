@@ -98,13 +98,12 @@ Context:
 Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
 
   // NVIDIA integrate.api.nvidia.com — MiniMax-M3 multimodal payload shape
-  // Using stream:false for reliability — CSS generation doesn't need token-by-token streaming
   const nvidiaBody = {
     model: 'minimaxai/minimax-m3',
     max_tokens: 3000,
     temperature: 0.2,
     top_p: 0.95,
-    stream: false,
+    stream: true,
     messages: [
       {
         role: 'user',
@@ -122,7 +121,7 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'text/event-stream'
       },
       body: JSON.stringify(nvidiaBody)
     });
@@ -132,21 +131,79 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
       return res.status(upstream.status).json({ error: `NVIDIA API error: ${upstream.status}`, detail: errText });
     }
 
-    const data = await upstream.json();
-    const content = data.choices &&
-                    data.choices[0] &&
-                    data.choices[0].message &&
-                    data.choices[0].message.content;
-
-    if (!content) {
-      return res.status(500).json({ error: 'No content in response', raw: data });
-    }
-
-    // Return as SSE so client parser works unchanged
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let cssAccumulated = '';
+    let finishReason = null;
+
+    while (true) {
+      // Per-chunk timeout — if NVIDIA stops sending for 20s, bail out
+      const chunkPromise = reader.read();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('chunk_timeout')), 20000)
+      );
+
+      let done, value;
+      try {
+        const result = await Promise.race([chunkPromise, timeoutPromise]);
+        done = result.done;
+        value = result.value;
+      } catch (e) {
+        // Chunk timeout — stream is stuck, send what we have and close
+        console.log('Chunk timeout — sending accumulated CSS and closing');
+        break;
+      }
+
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete last line
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === ':' ) continue;
+
+        if (trimmed === 'data: [DONE]') {
+          finishReason = 'done';
+          break;
+        }
+
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            const delta = parsed.choices &&
+                          parsed.choices[0] &&
+                          parsed.choices[0].delta &&
+                          parsed.choices[0].delta.content;
+
+            // Check finish_reason
+            const reason = parsed.choices &&
+                           parsed.choices[0] &&
+                           parsed.choices[0].finish_reason;
+            if (reason) finishReason = reason;
+
+            if (delta) {
+              cssAccumulated += delta;
+              // Forward the chunk to client in same SSE format
+              res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`);
+            }
+          } catch (e) {
+            // unparseable line — skip
+          }
+        }
+      }
+
+      if (finishReason) break;
+    }
+
+    // Always send DONE so client knows stream is finished
     res.write('data: [DONE]\n\n');
     return res.end();
 
