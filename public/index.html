@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dianomi Subtype Tool</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3250;
+  --accent:#4f6ef7;--accent-dim:#3a52c4;--text:#e8eaf6;--text-dim:#7b82a8;
+  --success:#4caf88;--warning:#f0a843;--danger:#e05c6a;--radius:5px;
+  --mono:'Fira Code','Cascadia Code',monospace;
+}
+body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;font-size:12px;}
+
+/* TOPBAR */
+.topbar{height:44px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:10px;flex-shrink:0;overflow-x:auto;}
+.brand{font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0;}.brand span{color:var(--accent);}
+.divider{width:1px;height:18px;background:var(--border);flex-shrink:0;}
+.cg{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.cl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+.btn{padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:system-ui,sans-serif;}
+.btn:hover{border-color:var(--accent);color:var(--text);}.btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.bg{display:flex;gap:2px;}
+.nc{display:flex;align-items:center;gap:5px;}
+.nc button{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;padding:0;}
+.nc button:hover{background:var(--accent);border-color:var(--accent);}
+.nv{font-size:13px;font-weight:700;min-width:20px;text-align:center;}
+input[type=range]{-webkit-appearance:none;width:90px;height:3px;border-radius:2px;background:var(--border);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;}
+.wv{font-size:11px;color:var(--text);min-width:42px;font-variant-numeric:tabular-nums;}
+.tr{margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.si{font-size:10px;color:var(--success);opacity:0;transition:opacity .3s;white-space:nowrap;}.si.show{opacity:1;}
+.bp{padding:4px 12px;border-radius:var(--radius);border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:600;cursor:pointer;transition:background .15s;white-space:nowrap;font-family:system-ui,sans-serif;}
+.bp:hover{background:var(--accent-dim);}
+.bp.green{background:#2e7d32;}.bp.green:hover{background:#1b5e20;}
+
+/* PRESET BAR */
+.presetbar{height:34px;background:#1a1f35;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;}
+.pl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600;white-space:nowrap;}
+select.psel{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:11px;padding:2px 8px;border-radius:var(--radius);cursor:pointer;outline:none;font-family:system-ui,sans-serif;height:22px;}
+select.psel:focus{border-color:var(--accent);}
+select.psel option{background:var(--surface2);}
+.pdiv{width:1px;height:16px;background:var(--border);}
+
+/* SCREENSHOT BUTTON */
+.ss-btn{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap;margin-left:auto;}
+.ss-btn:hover{border-color:#a78bfa;color:#a78bfa;}
+.ss-btn.loading{border-color:#a78bfa;color:#a78bfa;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
+
+/* OPTS BAR */
+.optbar{height:30px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;overflow-x:auto;}
+.ol{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600;white-space:nowrap;}
+.od{width:1px;height:14px;background:var(--border);flex-shrink:0;}
+.or{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0;}
+
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* LEFT */
+.left{width:400px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden;}
+.es{display:flex;flex-direction:column;overflow:hidden;}
+.es.collapsed{flex:0 0 auto;}.es.expanded{flex:1;min-height:0;}
+.eh{height:32px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:6px;cursor:pointer;flex-shrink:0;user-select:none;}
+.eh:hover{background:var(--surface2);}
+.et{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;flex:1;}
+.eb{font-size:9px;padding:1px 5px;border-radius:8px;background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);}
+.ch{font-size:9px;color:var(--text-dim);transition:transform .2s;}.ch.open{transform:rotate(180deg);}
+.ebody{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
+.ebody.hidden{display:none;}
+.CodeMirror{height:100%!important;font-size:11px!important;line-height:1.55!important;font-family:var(--mono)!important;}
+.cm-s-dracula.CodeMirror{background:#13151f!important;}
+textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;outline:none;font-family:var(--mono);font-size:11px;line-height:1.55;padding:10px;resize:none;}
+
+/* RIGHT */
+.right{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#c8c8c8;}
+.pb{height:32px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:8px;flex-shrink:0;}
+.pbl{font-size:10px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;}
+.pc{flex:1;overflow:auto;padding:20px;display:flex;justify-content:center;align-items:flex-start;}
+.fw{background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.2);flex-shrink:0;transition:width .2s,height .2s;overflow:hidden;}
+#prev{display:block;border:none;width:100%;height:600px;}
+
+/* SCREENSHOT MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.show{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:480px;max-width:90vw;display:flex;flex-direction:column;gap:16px;}
+.modal-title{font-size:14px;font-weight:700;color:var(--text);}
+.modal-sub{font-size:11px;color:var(--text-dim);line-height:1.5;}
+.drop-zone{border:2px dashed var(--border);border-radius:8px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text-dim);font-size:12px;}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);color:var(--text);background:rgba(79,110,247,.05);}
+.drop-zone input{display:none;}
+.drop-zone-icon{font-size:32px;margin-bottom:8px;}
+.modal-preview{max-width:100%;max-height:200px;border-radius:6px;object-fit:contain;display:none;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+.modal-cancel{padding:6px 14px;border-radius:var(--radius);border:1px solid var(--border);background:transparent;color:var(--text-dim);font-size:12px;cursor:pointer;font-family:system-ui,sans-serif;}
+.modal-cancel:hover{border-color:var(--text-dim);color:var(--text);}
+.modal-generate{padding:6px 14px;border-radius:var(--radius);border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:system-ui,sans-serif;transition:background .15s;}
+.modal-generate:hover{background:var(--accent-dim);}
+.modal-generate:disabled{background:var(--border);cursor:not-allowed;}
+.gen-status{font-size:11px;color:#a78bfa;min-height:16px;}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">Dianomi <span>Subtype Tool</span></div>
+  <div class="divider"></div>
+  <div class="cg">
+    <span class="cl">Num Ads</span>
+    <div class="nc">
+      <button id="btn-minus">−</button>
+      <span class="nv" id="num-display">1</span>
+      <button id="btn-plus">+</button>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="cg">
+    <span class="cl">W</span>
+    <div class="cg">
+      <input type="range" id="w-slider" min="1" max="100" value="30">
+      <span class="wv" id="w-val">438px</span>
+    </div>
+  </div>
+  <div class="cg">
+    <span class="cl">H</span>
+    <div class="cg">
+      <input type="range" id="h-slider" min="100" max="1200" value="600" step="10">
+      <span class="wv" id="h-val">600px</span>
+    </div>
+  </div>
+  <div class="cg">
+    <div class="bg">
+      <button class="btn" id="bp375">375</button>
+      <button class="btn" id="bp768">768</button>
+      <button class="btn" id="bp970">970</button>
+      <button class="btn" id="bp1460">1460</button>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="cg">
+    <span class="cl">Order</span>
+    <div class="bg">
+      <button class="btn active" id="ord-pt">provider, text</button>
+      <button class="btn" id="ord-tp">text, provider</button>
+    </div>
+  </div>
+  <div class="tr">
+    <span class="si" id="si">✓ Saved</span>
+    <button class="bp" id="dl-css">↓ CSS</button>
+    <button class="bp green" id="dl-html">↓ HTML</button>
+  </div>
+</div>
+
+<!-- PRESET BAR -->
+<div class="presetbar">
+  <span class="pl">Preset</span>
+  <select class="psel" id="unit-preset">
+    <option value="">— load preset —</option>
+    <option value="flex-baseline">Flex baseline (default)</option>
+    <option value="list-300x600">5-image 300×600 right rail</option>
+  </select>
+  <div class="pdiv"></div>
+  <span class="pl">Header Html</span>
+  <select class="psel" id="header-preset">
+    <option value="">— select —</option>
+    <option value="logo-only">Single ad — logo only</option>
+    <option value="logo-action">Single ad — logo + Read More</option>
+    <option value="list-yac">List — logo + YAC + line2</option>
+  </select>
+  <button class="ss-btn" id="ss-btn">✦ Screenshot → CSS</button>
+</div>
+
+<!-- OPTS BAR -->
+<div class="optbar">
+  <span class="ol">Maintext</span>
+  <div class="bg" id="char-btns">
+    <button class="btn active" data-chars="30">30</button>
+    <button class="btn" data-chars="60">60</button>
+    <button class="btn" data-chars="90">90</button>
+    <button class="btn" data-chars="120">120</button>
+    <button class="btn" data-chars="150">150</button>
+  </div>
+  <div class="od"></div>
+  <span class="ol">Provider</span>
+  <div class="bg" id="prov-btns">
+    <button class="btn active" data-prov="15">15</button>
+    <button class="btn" data-prov="20">20</button>
+    <button class="btn" data-prov="30">30</button>
+  </div>
+  <div class="or">
+    <span class="ol">Order</span>
+    <div class="bg">
+      <button class="btn active" id="ord-pt2">provider, text</button>
+      <button class="btn" id="ord-tp2">text, provider</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="left">
+
+    <div class="es collapsed" id="sec-header">
+      <div class="eh" id="hd-header">
+        <span class="et">Header Html</span>
+        <span class="eb">Fonts · Logo · Scripts</span>
+        <span class="ch" id="ch-header">▼</span>
+      </div>
+      <div class="ebody hidden" id="bd-header">
+        <div style="flex:1;overflow:hidden;min-height:0;position:relative;" id="cm-header-wrap">
+          <textarea class="fb" id="ta-header" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="es expanded" id="sec-css">
+      <div class="eh" id="hd-css">
+        <span class="et">CSS</span>
+        <span class="eb">Subtype Css field</span>
+        <span class="ch open" id="ch-css">▼</span>
+      </div>
+      <div class="ebody" id="bd-css">
+        <div style="flex:1;overflow:hidden;min-height:0;height:100%;position:relative;" id="cm-css-wrap">
+          <textarea class="fb" id="ta-css" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="es collapsed" id="sec-html">
+      <div class="eh" id="hd-html">
+        <span class="et">Generated HTML</span>
+        <span class="eb">Read-only · Live DOM</span>
+        <span class="ch" id="ch-html">▼</span>
+      </div>
+      <div class="ebody hidden" id="bd-html">
+        <div style="flex:1;overflow:hidden;min-height:0;height:100%;position:relative;" id="cm-html-wrap"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="right">
+    <div class="pb">
+      <span class="pbl">Live Preview</span>
+      <span style="font-size:10px;color:var(--text-dim);margin-left:auto;" id="size-lbl"></span>
+    </div>
+    <div class="pc">
+      <div class="fw" id="frame-wrap">
+        <iframe id="prev" scrolling="yes"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREENSHOT MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title">✦ Screenshot → CSS</div>
+    <div class="modal-sub">Upload or paste a screenshot of a Dianomi ad unit. Gemini will analyse it and generate CSS matching the layout, typography and colours.</div>
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept="image/*">
+      <div class="drop-zone-icon">⬆</div>
+      <div>Drop image here or <strong>click to upload</strong></div>
+      <div style="margin-top:4px;font-size:10px;color:var(--text-dim);">Also supports Ctrl+V paste</div>
+    </div>
+    <img class="modal-preview" id="modal-preview">
+    <div class="gen-status" id="gen-status"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" id="modal-cancel">Cancel</button>
+      <button class="modal-generate" id="modal-generate" disabled>Generate CSS</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+var S = { numAds:1, widthPct:30, heightPx:600, charLen:30, provLen:15, order:'provider,text' };
+var MAX_W = 1460;
+var cmCSS=null, cmHeader=null, cmHTMLout=null;
+var cmCSSReady=false, cmHeaderReady=false;
+var renderTimer=null, currentBlob=null;
+var pendingImageBase64=null, pendingMimeType='image/png';
+
+// ─────────────────────────────────────────────
+// IMAGES
+// ─────────────────────────────────────────────
+var IMAGES = [
+  'https://images.ctfassets.net/hrltx12pl8hq/5596z2BCR9KmT1KeRBrOQa/4070fd4e2f1a13f71c2c46afeb18e41c/shutterstock_451077043-hero1.jpg?fit=fill&w=600&h=400',
+  'https://cdn.pixabay.com/photo/2026/06/13/03/06/ahmetyuksek-amalfi-10329298_1280.jpg',
+  'https://images.pexels.com/photos/38219203/pexels-photo-38219203/free-photo-of-colorful-spiral-bridge-in-singapore.jpeg?cs=tinysrgb&dpr=1&w=500',
+  'https://sunny16.com/cdn/shop/articles/What_is_Stock_Photography_Business_-_Stock_Photography_Examples_-_Header_-_Sunny_16_bb6dd35b-1406-401f-a9e9-93e58d0acef3.jpg?v=1746484948',
+  'https://storage.ghost.io/c/6d/21/6d217297-aa70-41fe-b68d-e29e411dd3ed/content/images/2024/11/free-stock-image-sites.png',
+  'https://images.ctfassets.net/hrltx12pl8hq/5596z2BCR9KmT1KeRBrOQa/4070fd4e2f1a13f71c2c46afeb18e41c/shutterstock_451077043-hero1.jpg?fit=fill&w=600&h=400',
+  'https://cdn.pixabay.com/photo/2026/06/13/03/06/ahmetyuksek-amalfi-10329298_1280.jpg',
+  'https://images.pexels.com/photos/38219203/pexels-photo-38219203/free-photo-of-colorful-spiral-bridge-in-singapore.jpeg?cs=tinysrgb&dpr=1&w=500',
+  'https://sunny16.com/cdn/shop/articles/What_is_Stock_Photography_Business_-_Stock_Photography_Examples_-_Header_-_Sunny_16_bb6dd35b-1406-401f-a9e9-93e58d0acef3.jpg?v=1746484948',
+  'https://storage.ghost.io/c/6d/21/6d217297-aa70-41fe-b68d-e29e411dd3ed/content/images/2024/11/free-stock-image-sites.png'
+];
+
+var PROVIDERS_FULL = [
+  'Fisher Investments','SmartAsset','TradeStation','The Motley Fool',
+  'Charles Schwab','BlackRock','Fidelity Investments','Vanguard Group',
+  'Magnite Corp','Savings.com'
+];
+
+var MAINTEXT_FULL = 'Is it worth paying a financial advisor one percent of your assets each year to manage your portfolio and help you plan for retirement income security and long term wealth preservation';
+
+function trunc(str, len) {
+  if (!str) return '';
+  str = String(str);
+  if (str.length <= len) return str;
+  return str.substring(0, len-1).replace(/\s+$/,'') + '\u2026';
+}
+
+// ─────────────────────────────────────────────
+// HEADER HTML PRESETS
+// ─────────────────────────────────────────────
+var HP = {
+  'logo-only': '<div class="sub-line2" style="width: auto;">\n  <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n    <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="11" width="55" alt="Dianomi Logo">\n  </a>\n</div>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">',
+  'logo-action': '<div class="sub-line2" style="width: auto;">\n  <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n    <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="11" width="55" alt="Dianomi Logo">\n  </a>\n</div>\n<script>\nfunction docReadyState(fn){\n  if(document.readyState==="complete"||document.readyState==="interactive"){setTimeout(fn,1);}\n  else{document.addEventListener("DOMContentLoaded",fn);}\n}\ndocReadyState(function(){\n  var a=document.getElementsByClassName("action");\n  for(var i=0;i<a.length;i++){if(a[i].innerHTML==="")a[i].innerHTML="Read More";}\n});\n<\/script>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">',
+  'list-yac': '<div class="dianomi-wt">\n  <div class="sub-line2" style="width:auto;min-height:14px;">\n    <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n      <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="10" width="53" alt="Dianomi Logo">\n    </a>\n    <div class="dianomi-yac" style="display:inline;padding-left:4px;">\n      <a href="https://www.dianomi.com/legal/privacy.epl" target="_blank">\n        <img src="https://www.dianomi.com/img/YAC_Icon.png" alt="Your Ad Choices" style="height:12px;display:inline;">\n      </a>\n    </div>\n  </div>\n</div>\n<div class="line2"><span class="title">SPONSORED CONTENT</span></div>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'
+};
+
+// ─────────────────────────────────────────────
+// CSS PRESETS
+// ─────────────────────────────────────────────
+var CP = {};
+CP['flex-baseline'] = 'body {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Roboto\', sans-serif;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff; padding: 16px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.sub-line2 { position: absolute; bottom: 16px; right: 16px; z-index: 1; }\n.sub-line2 img { width: 55px; height: auto; display: block; }\n\n.dianomi-wt { margin-bottom: 8px; }\n\n.line2 {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; color: #888;\n  text-transform: uppercase; letter-spacing: 0.5px;\n  margin-bottom: 10px; display: block;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #e8e8e8;\n  padding-bottom: 16px; margin-bottom: 16px;\n}\n\n.subhero a.dianomihref {\n  display: flex; flex-direction: column;\n  text-decoration: none; color: inherit;\n}\n\n.subhero a.dianomihref img {\n  width: 100%; height: auto; display: block;\n  object-fit: cover; order: 2; margin-top: 12px;\n}\n\n.text {\n  order: 1; display: flex; flex-direction: column;\n  position: static !important; box-sizing: border-box; width: 100%;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.dianomi_provider_short {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; font-weight: 700;\n  color: #888; text-transform: uppercase; letter-spacing: 0.5px;\n  display: block !important; margin-bottom: 6px;\n}\n\n.maintext {\n  font-family: \'Merriweather\', serif; font-size: 20px; font-weight: 700;\n  line-height: 1.25; color: #111; display: block; margin: 0;\n}\n\n.action { display: none; }\n\n.subhero a.dianomihref:hover .maintext { opacity: 0.75; }\n\n@media (max-width: 780px) {\n  .wrapper { padding: 12px; }\n  .sub-line2 { bottom: 12px; right: 12px; }\n  .hero:not(.last) { padding-bottom: 12px; margin-bottom: 12px; }\n  .maintext { font-size: 17px; }\n}';
+
+CP['list-300x600'] = '/* ================================================\n   5-IMAGE 300x600 RIGHT RAIL\n   Header Html: List — logo + YAC + line2\n   Num Ads: 5  |  Element Order: text, provider\n   ================================================ */\n\nbody {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Inter\', sans-serif;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff;\n  padding: 12px 14px 40px 14px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.dianomi-wt {\n  display: flex; align-items: center; margin-bottom: 10px;\n}\n\n.sub-line2 {\n  position: absolute; bottom: 12px; right: 14px;\n  z-index: 1; display: flex; align-items: center; gap: 4px;\n}\n.sub-line2 img.dianomi-lg { width: 53px; height: auto; display: inline; }\n.dianomi-yac img { height: 12px; width: auto; display: inline; }\n\n.line2 {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 600; color: #999;\n  text-transform: uppercase; letter-spacing: 0.8px;\n  margin-bottom: 12px; display: block;\n  border-bottom: 1px solid #ebebeb; padding-bottom: 10px;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; padding: 0; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #ebebeb;\n  padding-bottom: 12px; margin-bottom: 12px;\n}\n\n.subhero a.dianomihref {\n  display: flex; flex-direction: row;\n  align-items: flex-start; gap: 10px;\n  text-decoration: none; color: inherit;\n}\n\n.subhero a.dianomihref img {\n  width: 80px; height: 60px;\n  object-fit: cover; flex-shrink: 0;\n  display: block; border-radius: 4px;\n}\n\n.text {\n  flex: 1; display: flex; flex-direction: column;\n  justify-content: center;\n  position: static !important;\n  box-sizing: border-box; min-width: 0;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.maintext {\n  font-family: \'Inter\', sans-serif;\n  font-size: 13px; font-weight: 600;\n  line-height: 1.35; color: #1a1a1a;\n  display: block; margin: 0 0 4px 0;\n}\n\n.dianomi_provider_short {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 400; color: #999;\n  display: block !important;\n  text-transform: none; letter-spacing: 0;\n}\n\n.action { display: none; }\n\n.subhero a.dianomihref:hover .maintext { color: #0050d0; }\n\n@media (max-width: 400px) {\n  .wrapper { padding: 10px 10px 36px 10px; }\n  .maintext { font-size: 12px; }\n  .subhero a.dianomihref img { width: 70px; height: 52px; }\n}';
+
+// ─────────────────────────────────────────────
+// HTML BUILDER
+// ─────────────────────────────────────────────
+function buildHero(i, total, charLen, provLen, order) {
+  var isFirst=(i===0), isLast=(i===total-1);
+  var cls='hero'+(isFirst?' first':'')+(isLast?' last dianomi_branded':'');
+  var n=i+1;
+  var imgSrc=IMAGES[i%IMAGES.length];
+  var prov=trunc(PROVIDERS_FULL[i%PROVIDERS_FULL.length],provLen);
+  var head=trunc(MAINTEXT_FULL,charLen);
+  var provEl='<div class="dianomi_provider_short" style="display:inline">'+prov+'</div>';
+  var mainEl='<div class="maintext">'+head+'</div>';
+  var actionEl='<div class="action"></div>';
+  var spanL2='<span class="line2">Advertisement</span>';
+  var inner=(order==='provider,text')
+    ?'\n          '+provEl+'\n          '+spanL2+'\n          '+mainEl+'\n          '+actionEl
+    :'\n          '+mainEl+'\n          '+provEl+'\n          '+actionEl;
+  return [
+    '  <div id="dianomi_ad_'+n+'" class="'+cls+'">',
+    '    <div class="subhero">',
+    '      <div class="heading_top"></div>',
+    '      <a rel="nofollow" class="dianomihref dianomihref_" target="_blank" href="#">',
+    '        <img class="png" border="0" alt="" src="'+imgSrc+'">',
+    '        <div class="text">',
+    '          <div class="dianomiHeading heading"></div>'+inner,
+    '        </div>',
+    '      </a>',
+    '    </div>',
+    '  </div>'
+  ].join('\n');
+}
+
+function buildHTML(css,headerHtml,numAds,charLen,provLen,order){
+  var heroes='';
+  for(var i=0;i<numAds;i++) heroes+='\n'+buildHero(i,numAds,charLen,provLen,order);
+  return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<style>.hidden{display:none!important;}.maintext{display:inline;}</style>\n'+headerHtml+'\n<style>\n'+css+'\n</style>\n</head>\n<body>\n<div class="wrapper dianomi_smartad_1 _dianomi_wrapper dianomi_branded" data-smartad-id="1" id="1">\n'+heroes+'\n</div>\n</body>\n</html>';
+}
+
+// ─────────────────────────────────────────────
+// EDITOR ACCESSORS
+// ─────────────────────────────────────────────
+function getCSS(){return cmCSSReady&&cmCSS?cmCSS.getValue():document.getElementById('ta-css').value;}
+function getHeader(){if(cmHeaderReady&&cmHeader)return cmHeader.getValue();var e=document.getElementById('ta-header');return e?e.value:'';}
+function setCSS(val){if(cmCSSReady&&cmCSS){cmCSS.setValue(val);}else{var e=document.getElementById('ta-css');if(e)e.value=val;}}
+function setHeader(val){if(cmHeaderReady&&cmHeader){cmHeader.setValue(val);}else{var e=document.getElementById('ta-header');if(e)e.value=val;}}
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+function schedRender(){clearTimeout(renderTimer);renderTimer=setTimeout(doRender,400);autoSave();}
+
+function doRender(){
+  var css=getCSS(),hdr=getHeader();
+  var html=buildHTML(css,hdr,S.numAds,S.charLen,S.provLen,S.order);
+  if(cmHTMLout){try{cmHTMLout.setValue(html);}catch(e){}}
+  var blob=new Blob([html],{type:'text/html'});
+  var url=URL.createObjectURL(blob);
+  var iframe=document.getElementById('prev');
+  var old=currentBlob; currentBlob=url;
+  iframe.onload=function(){if(old)URL.revokeObjectURL(old);};
+  iframe.src=url;
+}
+
+// ─────────────────────────────────────────────
+// CONTROLS
+// ─────────────────────────────────────────────
+function updateWidth(pct){
+  S.widthPct=parseInt(pct,10);
+  var px=Math.round((S.widthPct/100)*MAX_W);
+  document.getElementById('w-val').textContent=px+'px';
+  document.getElementById('size-lbl').textContent=px+'px × '+S.heightPx+'px';
+  document.getElementById('frame-wrap').style.width=px+'px';
+}
+
+function updateHeight(px){
+  S.heightPx=parseInt(px,10);
+  document.getElementById('h-val').textContent=S.heightPx+'px';
+  document.getElementById('size-lbl').textContent=Math.round((S.widthPct/100)*MAX_W)+'px × '+S.heightPx+'px';
+  document.getElementById('prev').style.height=S.heightPx+'px';
+  document.getElementById('frame-wrap').style.height=S.heightPx+'px';
+}
+
+function setBP(px){
+  var pct=Math.round((px/MAX_W)*100);
+  document.getElementById('w-slider').value=pct;
+  updateWidth(pct); schedRender();
+}
+
+function setOrderUI(o){
+  ['ord-pt','ord-tp','ord-pt2','ord-tp2'].forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    var isPT=(id==='ord-pt'||id==='ord-pt2');
+    el.classList.toggle('active',o==='provider,text'?isPT:!isPT);
+  });
+}
+
+// ─────────────────────────────────────────────
+// SECTION TOGGLE
+// ─────────────────────────────────────────────
+var SEC={header:false,css:true,html:false};
+function toggleSec(name){
+  SEC[name]=!SEC[name];
+  var body=document.getElementById('bd-'+name);
+  var chev=document.getElementById('ch-'+name);
+  var sec=document.getElementById('sec-'+name);
+  var open=SEC[name];
+  if(open){
+    body.classList.remove('hidden');chev.classList.add('open');
+    sec.classList.add('expanded');sec.classList.remove('collapsed');
+    setTimeout(function(){
+      if(name==='css'&&cmCSSReady&&cmCSS)cmCSS.refresh();
+      if(name==='header'&&cmHeaderReady&&cmHeader)cmHeader.refresh();
+      if(name==='html'&&cmHTMLout)cmHTMLout.refresh();
+    },60);
+  } else {
+    body.classList.add('hidden');chev.classList.remove('open');
+    sec.classList.remove('expanded');sec.classList.add('collapsed');
+  }
+}
+
+// ─────────────────────────────────────────────
+// SAVE / LOAD
+// ─────────────────────────────────────────────
+function autoSave(){
+  try{
+    localStorage.setItem('dss5_css',getCSS());
+    localStorage.setItem('dss5_hdr',getHeader());
+    localStorage.setItem('dss5_state',JSON.stringify(S));
+    var el=document.getElementById('si');
+    el.classList.add('show');clearTimeout(el._t);
+    el._t=setTimeout(function(){el.classList.remove('show');},1500);
+  }catch(e){}
+}
+
+function loadSaved(){
+  try{
+    var css=localStorage.getItem('dss5_css');
+    var hdr=localStorage.getItem('dss5_hdr');
+    var st=localStorage.getItem('dss5_state');
+    if(css)setCSS(css);
+    if(hdr)setHeader(hdr);
+    if(st){
+      var s=JSON.parse(st);
+      S.numAds=s.numAds||1;S.widthPct=s.widthPct||30;
+      S.heightPx=s.heightPx||600;S.charLen=s.charLen||30;
+      S.provLen=s.provLen||15;S.order=s.order||'provider,text';
+      document.getElementById('num-display').textContent=S.numAds;
+      document.getElementById('w-slider').value=S.widthPct;
+      document.getElementById('h-slider').value=S.heightPx;
+      updateWidth(S.widthPct);updateHeight(S.heightPx);
+      document.querySelectorAll('#char-btns .btn').forEach(function(b){
+        b.classList.toggle('active',parseInt(b.dataset.chars,10)===S.charLen);
+      });
+      document.querySelectorAll('#prov-btns .btn').forEach(function(b){
+        b.classList.toggle('active',parseInt(b.dataset.prov,10)===S.provLen);
+      });
+      setOrderUI(S.order);
+    }
+  }catch(e){}
+}
+
+function dlFile(content,filename,type){
+  var blob=new Blob([content],{type:type});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=filename;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+// ─────────────────────────────────────────────
+// SCREENSHOT → CSS
+// ─────────────────────────────────────────────
+function openModal(){document.getElementById('modal').classList.add('show');}
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+  document.getElementById('modal-preview').style.display='none';
+  document.getElementById('modal-preview').src='';
+  document.getElementById('modal-generate').disabled=true;
+  document.getElementById('gen-status').textContent='';
+  document.getElementById('file-input').value='';
+  pendingImageBase64=null;
+}
+
+function handleImageFile(file){
+  if(!file||!file.type.startsWith('image/'))return;
+  pendingMimeType=file.type;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var dataUrl=e.target.result;
+    pendingImageBase64=dataUrl.split(',')[1];
+    var preview=document.getElementById('modal-preview');
+    preview.src=dataUrl;preview.style.display='block';
+    document.getElementById('modal-generate').disabled=false;
+    document.getElementById('gen-status').textContent='Image ready. Click Generate CSS.';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function generateCSS(){
+  if(!pendingImageBase64){return;}
+  var btn=document.getElementById('modal-generate');
+  var status=document.getElementById('gen-status');
+  var ssBtn=document.getElementById('ss-btn');
+  btn.disabled=true;
+  btn.textContent='Generating…';
+  status.textContent='Sending to Gemini…';
+  ssBtn.classList.add('loading');
+  ssBtn.textContent='✦ Generating…';
+
+  try{
+    var resp=await fetch('/api/generate-css',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        imageBase64:pendingImageBase64,
+        mimeType:pendingMimeType,
+        numAds:S.numAds,
+        order:S.order
+      })
+    });
+
+    if(!resp.ok){
+      var err=await resp.json();
+      status.textContent='Error: '+(err.error||resp.status);
+      btn.disabled=false;btn.textContent='Generate CSS';
+      ssBtn.classList.remove('loading');ssBtn.textContent='✦ Screenshot → CSS';
+      return;
+    }
+
+    // Stream SSE response into CSS editor
+    var reader=resp.body.getReader();
+    var decoder=new TextDecoder();
+    var cssBuffer='';
+    status.textContent='Streaming CSS…';
+
+    while(true){
+      var chunk=await reader.read();
+      if(chunk.done)break;
+      var text=decoder.decode(chunk.value,{stream:true});
+      var lines=text.split('\n');
+      for(var i=0;i<lines.length;i++){
+        var line=lines[i].trim();
+        if(!line||line==='data: [DONE]')continue;
+        if(line.startsWith('data: ')){
+          try{
+            var json=JSON.parse(line.slice(6));
+            var delta=json.choices&&json.choices[0]&&json.choices[0].delta&&json.choices[0].delta.content;
+            if(delta){
+              cssBuffer+=delta;
+              setCSS(cssBuffer);
+            }
+          }catch(e){}
+        }
+      }
+    }
+
+    status.textContent='✓ CSS generated — preview updated';
+    schedRender();
+    setTimeout(function(){closeModal();},1200);
+
+  }catch(e){
+    status.textContent='Error: '+e.message;
+  } finally {
+    btn.disabled=false;btn.textContent='Generate CSS';
+    ssBtn.classList.remove('loading');ssBtn.textContent='✦ Screenshot → CSS';
+  }
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded',function(){
+
+  document.getElementById('ta-css').value=CP['flex-baseline'];
+  document.getElementById('ta-header').value=HP['logo-only'];
+  updateWidth(30);updateHeight(600);
+
+  // CSS CM
+  try{
+    var cw=document.getElementById('cm-css-wrap');
+    cw.removeChild(document.getElementById('ta-css'));
+    cmCSS=CodeMirror(cw,{
+      value:CP['flex-baseline'],mode:'css',theme:'dracula',
+      lineNumbers:true,tabSize:2,indentWithTabs:false,
+      lineWrapping:false,autofocus:true,
+      extraKeys:{Tab:function(cm){cm.replaceSelection('  ');}}
+    });
+    cmCSS.setSize('100%','100%');cmCSS.on('change',schedRender);cmCSSReady=true;
+  }catch(e){var ta=document.getElementById('ta-css');if(ta)ta.addEventListener('input',schedRender);}
+
+  // Header CM
+  try{
+    var hw=document.getElementById('cm-header-wrap');
+    var taH=document.getElementById('ta-header');
+    var initH=taH.value;hw.removeChild(taH);
+    cmHeader=CodeMirror(hw,{
+      value:initH,mode:'htmlmixed',theme:'dracula',
+      lineNumbers:true,tabSize:2,lineWrapping:true,
+      extraKeys:{Tab:function(cm){cm.replaceSelection('  ');}}
+    });
+    cmHeader.setSize('100%','100%');cmHeader.on('change',schedRender);cmHeaderReady=true;
+  }catch(e){
+    var tfb=document.createElement('textarea');
+    tfb.className='fb';tfb.id='ta-header';tfb.spellcheck=false;
+    tfb.value=HP['logo-only'];tfb.addEventListener('input',schedRender);
+    document.getElementById('cm-header-wrap').appendChild(tfb);
+  }
+
+  // HTML output
+  try{
+    cmHTMLout=CodeMirror(document.getElementById('cm-html-wrap'),{
+      value:'',mode:'htmlmixed',theme:'dracula',lineNumbers:true,readOnly:true,lineWrapping:false
+    });
+    cmHTMLout.setSize('100%','100%');
+  }catch(e){}
+
+  if(localStorage.getItem('dss5_css'))loadSaved();
+
+  // ── EVENTS ──
+  document.getElementById('btn-minus').addEventListener('click',function(){
+    S.numAds=Math.max(1,S.numAds-1);
+    document.getElementById('num-display').textContent=S.numAds;schedRender();
+  });
+  document.getElementById('btn-plus').addEventListener('click',function(){
+    S.numAds++;document.getElementById('num-display').textContent=S.numAds;schedRender();
+  });
+
+  document.getElementById('w-slider').addEventListener('input',function(){updateWidth(this.value);schedRender();});
+  document.getElementById('h-slider').addEventListener('input',function(){updateHeight(this.value);schedRender();});
+
+  document.getElementById('bp375').addEventListener('click',function(){setBP(375);});
+  document.getElementById('bp768').addEventListener('click',function(){setBP(768);});
+  document.getElementById('bp970').addEventListener('click',function(){setBP(970);});
+  document.getElementById('bp1460').addEventListener('click',function(){setBP(1460);});
+
+  document.getElementById('ord-pt').addEventListener('click',function(){S.order='provider,text';setOrderUI(S.order);schedRender();});
+  document.getElementById('ord-tp').addEventListener('click',function(){S.order='text,provider';setOrderUI(S.order);schedRender();});
+  document.getElementById('ord-pt2').addEventListener('click',function(){S.order='provider,text';setOrderUI(S.order);schedRender();});
+  document.getElementById('ord-tp2').addEventListener('click',function(){S.order='text,provider';setOrderUI(S.order);schedRender();});
+
+  document.getElementById('char-btns').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-chars]');if(!btn)return;
+    S.charLen=parseInt(btn.dataset.chars,10);
+    document.querySelectorAll('#char-btns .btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');schedRender();
+  });
+
+  document.getElementById('prov-btns').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-prov]');if(!btn)return;
+    S.provLen=parseInt(btn.dataset.prov,10);
+    document.querySelectorAll('#prov-btns .btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');schedRender();
+  });
+
+  // UNIFIED PRESET — loads CSS + auto-configures controls + loads matching header
+  document.getElementById('unit-preset').addEventListener('change',function(){
+    var key=this.value;if(!key||!CP[key]){this.value='';return;}
+    setCSS(CP[key]);
+    if(key==='list-300x600'){
+      S.numAds=5;document.getElementById('num-display').textContent=5;
+      S.order='text,provider';setOrderUI(S.order);
+      setHeader(HP['list-yac']);
+      S.heightPx=600;document.getElementById('h-slider').value=600;updateHeight(600);
+      setBP(300);
+    } else {
+      setHeader(HP['logo-only']);
+    }
+    this.value='';schedRender();
+  });
+
+  document.getElementById('header-preset').addEventListener('change',function(){
+    var key=this.value;if(!key||!HP[key]){this.value='';return;}
+    setHeader(HP[key]);this.value='';schedRender();
+  });
+
+  document.getElementById('hd-header').addEventListener('click',function(){toggleSec('header');});
+  document.getElementById('hd-css').addEventListener('click',function(){toggleSec('css');});
+  document.getElementById('hd-html').addEventListener('click',function(){toggleSec('html');});
+
+  document.getElementById('dl-css').addEventListener('click',function(){dlFile(getCSS(),'dianomi-subtype.css','text/css');});
+  document.getElementById('dl-html').addEventListener('click',function(){
+    dlFile(buildHTML(getCSS(),getHeader(),S.numAds,S.charLen,S.provLen,S.order),'dianomi-preview.html','text/html');
+  });
+
+  // Screenshot modal
+  document.getElementById('ss-btn').addEventListener('click',openModal);
+  document.getElementById('modal-cancel').addEventListener('click',closeModal);
+  document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+  var dz=document.getElementById('drop-zone');
+  dz.addEventListener('click',function(){document.getElementById('file-input').click();});
+  dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag');});
+  dz.addEventListener('dragleave',function(){dz.classList.remove('drag');});
+  dz.addEventListener('drop',function(e){
+    e.preventDefault();dz.classList.remove('drag');
+    var file=e.dataTransfer.files[0];handleImageFile(file);
+  });
+  document.getElementById('file-input').addEventListener('change',function(){
+    handleImageFile(this.files[0]);
+  });
+
+  // Paste support
+  document.addEventListener('paste',function(e){
+    if(!document.getElementById('modal').classList.contains('show'))return;
+    var items=e.clipboardData&&e.clipboardData.items;
+    if(!items)return;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.startsWith('image/')){
+        handleImageFile(items[i].getAsFile());break;
+      }
+    }
+  });
+
+  document.getElementById('modal-generate').addEventListener('click',generateCSS);
+
+  doRender();
+});
+</script>
+</body>
+</html>
