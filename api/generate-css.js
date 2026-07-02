@@ -55,7 +55,16 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { return res.status(405).json({ error: 'Method not allowed' }); }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) { return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' }); }
+  if (!apiKey) {
+    return res.status(500).json({
+      error: 'OPENROUTER_API_KEY not configured',
+      debug: {
+        envKeysAvailable: Object.keys(process.env).filter(k => !k.startsWith('npm_') && !k.startsWith('VERCEL_')).sort(),
+        nodeEnv: process.env.NODE_ENV || 'unknown',
+        vercelEnv: process.env.VERCEL_ENV || 'unknown'
+      }
+    });
+  }
 
   const { imageBase64, mimeType = 'image/png', numAds = 1, order = 'provider,text' } = req.body || {};
 
