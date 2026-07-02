@@ -113,7 +113,10 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
     generationConfig: {
       temperature: 0.2,
       maxOutputTokens: 3000,
-      topP: 0.95
+      topP: 0.95,
+      thinkingConfig: {
+        thinkingBudget: 0  // disable thinking — we don't need reasoning for CSS generation
+      }
     }
   };
 
@@ -145,9 +148,27 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
     const reader = upstream.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let lastContentAt = Date.now();
+    const IDLE_TIMEOUT = 8000;  // close if no new text token for 8s
+    const MAX_TOTAL = 50000;    // hard cap at 50s
+    const startedAt = Date.now();
 
     while (true) {
-      const { done, value } = await reader.read();
+      const sinceContent = Date.now() - lastContentAt;
+      const elapsed = Date.now() - startedAt;
+
+      if (elapsed > MAX_TOTAL || sinceContent > IDLE_TIMEOUT) break;
+
+      let done, value;
+      try {
+        const result = await Promise.race([
+          reader.read(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('idle')), Math.min(IDLE_TIMEOUT - sinceContent, MAX_TOTAL - elapsed) + 100))
+        ]);
+        done = result.done;
+        value = result.value;
+      } catch (e) { break; }
+
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
@@ -161,14 +182,20 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
         if (trimmed.startsWith('data: ')) {
           try {
             const parsed = JSON.parse(trimmed.slice(6));
-            // Gemini streaming format: candidates[0].content.parts[0].text
             const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const finishReason = parsed?.candidates?.[0]?.finishReason;
+
             if (text) {
-              // Strip markdown fences if present in first chunk
+              lastContentAt = Date.now();
               const clean = text.replace(/^```css\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
               res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: clean } }] })}\n\n`);
             }
-          } catch (e) { /* skip unparseable */ }
+
+            if (finishReason && finishReason !== 'OTHER') {
+              buffer = ''; // flush
+              break;
+            }
+          } catch (e) { /* skip */ }
         }
       }
     }
