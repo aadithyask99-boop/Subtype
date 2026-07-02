@@ -72,7 +72,6 @@ LAYOUT PATTERNS — pick the one matching the screenshot:
 Output ONLY valid CSS. No markdown fences, no backticks, no explanation. Start directly with the first CSS rule. Be concise — combine selectors where possible, avoid redundant declarations. Target 50-80 rules maximum.`;
 
 module.exports = async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -80,11 +79,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { return res.status(200).end(); }
   if (req.method !== 'POST') { return res.status(405).json({ error: 'Method not allowed' }); }
 
-  const apiKey = process.env.NVIDIA_API_KEY || process.env.Nvidia_api;
-  if (!apiKey) { return res.status(500).json({ error: 'NVIDIA_API_KEY not configured' }); }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) { return res.status(500).json({ error: 'GEMINI_API_KEY not configured' }); }
 
   const { imageBase64, mimeType = 'image/png', numAds = 1, order = 'provider,text' } = req.body || {};
-
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
 
   const userPrompt = `Generate CSS for this Dianomi ad unit screenshot.
@@ -92,59 +90,69 @@ module.exports = async function handler(req, res) {
 Context:
 - Num Ads: ${numAds}
 - Element Order: ${order}
-- ${numAds > 1 ? 'This is a multi-ad list unit. Use flex-direction:column on .wrapper, with .hero:not(.last) for dividers between items.' : 'This is a single-ad unit.'}
-- ${order === 'text,provider' ? 'Text (headline) appears before provider name in the DOM.' : 'Provider name appears before text (headline) in the DOM.'}
+- ${numAds > 1 ? 'Multi-ad list unit. Use flex-direction:column on .wrapper, .hero:not(.last) for dividers.' : 'Single-ad unit.'}
+- ${order === 'text,provider' ? 'Headline appears before provider name in DOM.' : 'Provider name appears before headline in DOM.'}
 
-Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
+Replicate the layout, typography, colours, spacing and image treatment exactly. Use the flex-first pattern from your instructions. Be concise — 50-80 rules max.`;
 
-  const nvidiaBody = {
-    model: 'minimaxai/minimax-m3',
-    max_tokens: 3000,
-    temperature: 0.2,
-    top_p: 0.95,
-    stream: false,
-    messages: [
+  // Gemini Flash via Google AI Studio — native API format
+  const geminiBody = {
+    contents: [
       {
-        role: 'user',
-        content: [
-          { type: 'text', text: SYSTEM_PROMPT + '\n\n' + userPrompt },
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } }
+        parts: [
+          { text: SYSTEM_PROMPT + '\n\n' + userPrompt },
+          {
+            inline_data: {
+              mime_type: mimeType,
+              data: imageBase64
+            }
+          }
         ]
       }
-    ]
+    ],
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 3000,
+      topP: 0.95
+    }
   };
 
   try {
-    const upstream = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(nvidiaBody)
-    });
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiBody)
+      }
+    );
 
     if (!upstream.ok) {
       const errText = await upstream.text();
       return res.status(upstream.status).json({
-        error: `NVIDIA API error: ${upstream.status}`,
+        error: `Gemini API error: ${upstream.status}`,
         detail: errText
       });
     }
 
     const data = await upstream.json();
-    const content = data?.choices?.[0]?.message?.content;
+    const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
-      return res.status(500).json({ error: 'No content in response', raw: JSON.stringify(data) });
+      return res.status(500).json({ error: 'No content in Gemini response', raw: JSON.stringify(data) });
     }
 
-    // Send as single SSE event so client parser works unchanged
+    // Strip any markdown fences the model adds despite instructions
+    const css = content
+      .replace(/^```css\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
+
+    // Return as SSE so client parser works unchanged
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+    res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: css } }] })}\n\n`);
     res.write('data: [DONE]\n\n');
     return res.end();
 
