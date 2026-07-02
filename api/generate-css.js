@@ -1,5 +1,3 @@
-export const config = { runtime: 'edge' };
-
 const SYSTEM_PROMPT = `You are an expert in Dianomi ad unit CSS. You will be given a screenshot of a Dianomi ad unit design and must generate CSS that replicates it.
 
 The Dianomi DOM structure is fixed and cannot be changed. Your CSS must target only these selectors:
@@ -47,50 +45,21 @@ KEY RULES:
 
 Output ONLY valid CSS. No markdown, no explanation, no backticks. Start directly with the first CSS rule.`;
 
-export default async function handler(req) {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      }
-    });
-  }
+module.exports = async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  if (req.method === 'OPTIONS') { return res.status(200).end(); }
+  if (req.method !== 'POST') { return res.status(405).json({ error: 'Method not allowed' }); }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'OPENROUTER_API_KEY not configured' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  if (!apiKey) { return res.status(500).json({ error: 'OPENROUTER_API_KEY not configured' }); }
 
-  let body;
-  try {
-    body = await req.json();
-  } catch (e) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  const { imageBase64, mimeType = 'image/png', numAds = 1, order = 'provider,text' } = req.body || {};
 
-  const { imageBase64, mimeType = 'image/png', numAds = 1, order = 'provider,text' } = body;
-
-  if (!imageBase64) {
-    return new Response(JSON.stringify({ error: 'imageBase64 required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
+  if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
 
   const userPrompt = `Generate CSS for this Dianomi ad unit screenshot.
 
@@ -106,23 +75,12 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
     model: 'qwen/qwen2.5-vl-72b-instruct:free',
     stream: true,
     messages: [
-      {
-        role: 'system',
-        content: SYSTEM_PROMPT
-      },
+      { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
         content: [
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`
-            }
-          },
-          {
-            type: 'text',
-            text: userPrompt
-          }
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${imageBase64}` } },
+          { type: 'text', text: userPrompt }
         ]
       }
     ]
@@ -142,25 +100,28 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
 
     if (!upstream.ok) {
       const errText = await upstream.text();
-      return new Response(JSON.stringify({ error: `OpenRouter error: ${upstream.status}`, detail: errText }), {
-        status: upstream.status,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-      });
+      return res.status(upstream.status).json({ error: `OpenRouter error: ${upstream.status}`, detail: errText });
     }
 
-    // Stream the response back
-    return new Response(upstream.body, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
+    // Stream SSE back to client
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(decoder.decode(value, { stream: true }));
+    }
+
+    res.end();
 
   } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
+    if (!res.headersSent) {
+      res.status(500).json({ error: e.message });
+    }
   }
 }
