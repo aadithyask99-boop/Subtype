@@ -119,7 +119,7 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
 
   try {
     const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -129,9 +129,12 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
 
     if (!upstream.ok) {
       const errText = await upstream.text();
+      let detail;
+      try { detail = JSON.parse(errText); } catch(e) { detail = errText; }
       return res.status(upstream.status).json({
         error: `Gemini API error: ${upstream.status}`,
-        detail: errText
+        detail,
+        hint: upstream.status === 429 ? 'Check aistudio.google.com for quota usage. Try gemini-1.5-flash as fallback.' : undefined
       });
     }
 
