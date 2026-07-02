@@ -98,12 +98,13 @@ Context:
 Replicate the layout, typography, colours, spacing and image treatment shown in the screenshot. Use the flex-first pattern described in your instructions.`;
 
   // NVIDIA integrate.api.nvidia.com — MiniMax-M3 multimodal payload shape
+  // Using stream:false for reliability — CSS generation doesn't need token-by-token streaming
   const nvidiaBody = {
     model: 'minimaxai/minimax-m3',
     max_tokens: 3000,
     temperature: 0.2,
     top_p: 0.95,
-    stream: true,
+    stream: false,
     messages: [
       {
         role: 'user',
@@ -121,7 +122,7 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'Accept': 'text/event-stream'
+        'Accept': 'application/json'
       },
       body: JSON.stringify(nvidiaBody)
     });
@@ -131,34 +132,23 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
       return res.status(upstream.status).json({ error: `NVIDIA API error: ${upstream.status}`, detail: errText });
     }
 
-    // Stream SSE back to client
+    const data = await upstream.json();
+    const content = data.choices &&
+                    data.choices[0] &&
+                    data.choices[0].message &&
+                    data.choices[0].message.content;
+
+    if (!content) {
+      return res.status(500).json({ error: 'No content in response', raw: data });
+    }
+
+    // Return as SSE so client parser works unchanged
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    const contentType = upstream.headers.get('content-type') || '';
-
-    // Some models return plain JSON even when stream:true is set
-    if (!contentType.includes('text/event-stream')) {
-      const data = await upstream.json();
-      const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (content) {
-        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
-        res.write('data: [DONE]\n\n');
-      }
-      return res.end();
-    }
-
-    const reader = upstream.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(decoder.decode(value, { stream: true }));
-    }
-
-    res.end();
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.write(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    return res.end();
 
   } catch (e) {
     if (!res.headersSent) {
