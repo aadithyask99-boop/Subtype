@@ -69,7 +69,7 @@ LAYOUT PATTERNS — pick the one matching the screenshot:
 - List (image-left, text-right): .subhero a.dianomihref { flex-direction:row } img { width:80px; flex-shrink:0 }
 - Landscape single (970x250): .subhero a.dianomihref { flex-direction:row } .action { display:block }
 
-Output ONLY valid CSS. No markdown fences, no backticks, no explanation. Start directly with the first CSS rule.`;
+Output ONLY valid CSS. No markdown fences, no backticks, no explanation. Start directly with the first CSS rule. Be concise — combine selectors where possible, avoid redundant declarations. Target 50-80 rules maximum.`;
 
 module.exports = async function handler(req, res) {
   // CORS
@@ -100,7 +100,7 @@ Replicate the layout, typography, colours, spacing and image treatment shown in 
   // NVIDIA integrate.api.nvidia.com — MiniMax-M3 multimodal payload shape
   const nvidiaBody = {
     model: 'minimaxai/minimax-m3',
-    max_tokens: 8192,
+    max_tokens: 3000,
     temperature: 0.2,
     top_p: 0.95,
     stream: true,

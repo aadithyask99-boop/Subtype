@@ -6,6 +6,15 @@
   "functions": {
     "api/generate-css.js": {
       "maxDuration": 60
+    },
+    "api/check-balance.js": {
+      "maxDuration": 10
+    },
+    "api/check-nvidia-key.js": {
+      "maxDuration": 10
+    },
+    "api/list-vision-models.js": {
+      "maxDuration": 10
     }
   }
 }
