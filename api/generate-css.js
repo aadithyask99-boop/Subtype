@@ -73,7 +73,19 @@ Context:
 - ${numAds > 1 ? 'Multi-ad list unit. Use flex-direction:column on .wrapper, .hero:not(.last) for dividers.' : 'Single-ad unit.'}
 - ${order === 'text,provider' ? 'Headline appears before provider name in DOM.' : 'Provider name appears before headline in DOM.'}
 
-Replicate the layout, typography, colours, spacing and image treatment exactly. Study the two reference examples above carefully — match their code quality and precision. Be concise — 50-80 rules max.`;
+Before writing any CSS, look carefully at the screenshot and work through these questions internally:
+1. Layout family — which of the 5 patterns in your instructions does this match closest, or is it a hybrid?
+2. Count — exactly how many ad cards/items are visible?
+3. Heading — is there a unit-level label (e.g. "Sponsored Content", "Around the web")? If yes, that's div.line2 — note its font size, weight, colour, and whether it has a border underneath.
+4. Image — aspect ratio, corner radius (sharp or rounded, and how much), position relative to text (above/below/left/right), any visible gap between image and text.
+5. Typography — is the headline serif or sans-serif? Estimate its font-size relative to the provider label below it (usually 1.5-3x larger). What colour is the headline — pure black, dark grey, or a brand colour (e.g. blue links)? What colour and weight is the provider label — is it uppercase, does it have letter-spacing?
+6. Spacing — estimate the outer padding of the wrapper in pixels by comparing to the image width. Estimate the gap between cards/items. Estimate the gap between image and text within a card.
+7. Attribution — where does the Dianomi logo sit — bottom-right, top-right, or bottom-center of the whole unit?
+8. Background and dividers — is there a background colour other than white? Are there visible border lines between items, and what colour/weight?
+
+Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the two reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
+
+Be concise in the final output — 50-80 rules max, no commentary, just CSS.`;
 
   // Multi-turn few-shot: show real screenshot → real production CSS pairs before asking for the new one
   const geminiBody = {
@@ -94,14 +106,14 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
       {
         role: 'user',
         parts: [
-          { text: 'Good. Here is a SECOND REFERENCE EXAMPLE — a 5-item list unit (300x600 right rail), thumbnail-left layout with a heading label at top.' },
+          { text: 'Here is a SECOND REFERENCE EXAMPLE — a 5-item list unit (300x600 right rail), thumbnail-left layout with a heading label at top. This CSS represents solid structural defaults for this layout family (spacing scale, thumbnail sizing, typography hierarchy) — treat it as a strong starting pattern to adapt, not a pixel-exact match to copy blindly.' },
           { inline_data: { mime_type: 'image/png', data: REF_IMAGE_2 } }
         ]
       },
       {
         role: 'model',
         parts: [
-          { text: 'I see a multi-ad list: thumbnail images left, headline+provider text right, dividers between items, unit heading at top. Here is the CSS:\n\n' + REF_CSS_2 }
+          { text: 'I see a multi-ad list: thumbnail images left, headline+provider text right, dividers between items, unit heading at top. Here is CSS using solid structural defaults for this layout family:\n\n' + REF_CSS_2 }
         ]
       },
       {
@@ -114,10 +126,10 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
     ],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 3000,
+      maxOutputTokens: 4000,
       topP: 0.95,
       thinkingConfig: {
-        thinkingBudget: 0  // disable thinking — we don't need reasoning for CSS generation
+        thinkingBudget: 1024  // deliberate reasoning before writing CSS — mirrors careful visual analysis
       }
     }
   };
@@ -151,21 +163,24 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
     const decoder = new TextDecoder();
     let buffer = '';
     let lastContentAt = Date.now();
-    const IDLE_TIMEOUT = 8000;  // close if no new text token for 8s
-    const MAX_TOTAL = 50000;    // hard cap at 50s
+    let firstTokenReceived = false;
+    const FIRST_TOKEN_GRACE = 30000;  // allow up to 30s for thinking phase before first token
+    const IDLE_TIMEOUT = 10000;       // after first token, close if silent for 10s
+    const MAX_TOTAL = 55000;          // hard cap at 55s
     const startedAt = Date.now();
 
     while (true) {
       const sinceContent = Date.now() - lastContentAt;
       const elapsed = Date.now() - startedAt;
+      const currentTimeout = firstTokenReceived ? IDLE_TIMEOUT : FIRST_TOKEN_GRACE;
 
-      if (elapsed > MAX_TOTAL || sinceContent > IDLE_TIMEOUT) break;
+      if (elapsed > MAX_TOTAL || sinceContent > currentTimeout) break;
 
       let done, value;
       try {
         const result = await Promise.race([
           reader.read(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('idle')), Math.min(IDLE_TIMEOUT - sinceContent, MAX_TOTAL - elapsed) + 100))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('idle')), Math.min(currentTimeout - sinceContent, MAX_TOTAL - elapsed) + 100))
         ]);
         done = result.done;
         value = result.value;
@@ -184,13 +199,20 @@ Replicate the layout, typography, colours, spacing and image treatment exactly. 
         if (trimmed.startsWith('data: ')) {
           try {
             const parsed = JSON.parse(trimmed.slice(6));
-            const text = parsed?.candidates?.[0]?.content?.parts?.[0]?.text;
+            const part = parsed?.candidates?.[0]?.content?.parts?.[0];
+            const text = part?.text;
+            const isThought = part?.thought === true;
             const finishReason = parsed?.candidates?.[0]?.finishReason;
 
-            if (text) {
+            // Only forward real answer text, never thinking/reasoning text
+            if (text && !isThought) {
               lastContentAt = Date.now();
+              firstTokenReceived = true;
               const clean = text.replace(/^```css\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
               res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: clean } }] })}\n\n`);
+            } else if (text && isThought) {
+              // Thinking token arrived — reset the grace timer so it doesn't expire mid-thought
+              lastContentAt = Date.now();
             }
 
             if (finishReason && finishReason !== 'OTHER') {
