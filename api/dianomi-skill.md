@@ -613,26 +613,43 @@ span.line2 { display: none; }
 ### `.dianomi_provider_short` inline style override
 Dianomi injects `style="display:inline"` at runtime on `.dianomi_provider_short`. Without `!important`, your CSS will be overridden. Always use `display:block !important`.
 
+**Why:** The Dianomi platform injects inline styles via JavaScript after the stylesheet loads. Inline styles have higher specificity than class selectors in CSS, so `!important` is the only reliable override. This was discovered by comparing DevTools computed styles vs authored CSS and seeing the inline attribute winning.
+
 ### `.text` absolute positioning
 In some legacy unit configurations, Dianomi JS sets `position:absolute` on `.text`. Always set `position:static !important`.
 
-### Image reorder — must target `a.dianomihref` not `.hero`
-Both `img` and `.text` live inside `a.dianomihref`. Flex `order` must be set at that level:
+**Why:** Same mechanism as above — runtime JS injection. When `.text` becomes `position:absolute`, it escapes normal document flow, overlaps the image, and breaks any flex layout you've set. `position:static !important` forces it back into flow. We confirmed this by watching the computed styles change after DOM load in DevTools.
+
+### Image reorder — must target `.dianomihref` not `.hero`
+Both `img` and `.text` live inside `a.dianomihref`, making it the flex container that controls image/text order. Applying `order` to `.hero` or `.subhero` is one level too high and has no effect.
+
 ```css
 .dianomihref { display:flex; flex-direction:column; }
 .dianomihref .text { order:-1; } /* text first */
-.hero img { order:1; }   /* image second */
+.hero img { order:1; }           /* image second */
 ```
-NOT on `.hero` or `.subhero` — those are one level too high.
+
+**Why discovered:** Initially tried setting `order` on `.hero` children but nothing changed. DevTools showed the actual parent of both `img` and `.text` is the anchor tag (`a.dianomihref`), not `.hero`. The flex `order` only works on direct children of a flex container.
+
+### `span.line2` vs `div.line2` — critical distinction
+- `div.line2` with `<span class="title">` inside → unit heading label set in Header Html (e.g. "Around the web", "Sponsored Content") → **ALWAYS STYLE THIS, NEVER HIDE IT**
+- `span.line2` → injected by Dianomi JS before each `.maintext` saying "Advertisement" → **ALWAYS `display:none`**
+
+**Why this causes bugs:** Both have the class `line2` but they are completely different elements with different purposes. Writing `.line2 { display:none }` without the element qualifier hides BOTH — including the real heading label — which was a recurring mistake. Always qualify: `span.line2 { display:none }` (hide) and `div.line2 { }` (style).
+
+### `.sub-line2` is NOT inside `.hero`
+The Dianomi logo/attribution block (`.sub-line2`) is a direct child of `.wrapper`, sitting as a sibling before all `.hero` elements. This means:
+- `.hero img` is safe to use without accidentally targeting the logo image
+- `.sub-line2` can be `position:absolute` relative to `.wrapper`, not relative to any individual card
+- In multi-ad list units, `.sub-line2` is wrapped inside `.dianomi-wt` but still sits at wrapper level
 
 ### `body` height override
-Legacy units had `body { height:85px; overflow:hidden }`. Always reset:
+Legacy units had `body { height:85px; overflow:hidden }` which clips content on taller units. Always reset:
 ```css
 body { height:auto; overflow:visible; }
 ```
 
-### `.wrapper` old display:table pattern
-Some publisher CSS uses `display:table` + `float:left` on `.hero` for horizontal layouts. This works but is legacy. For new units use `display:flex` on `.wrapper` and `flex:1 1 0` on `.hero`.
+**Why:** These height values were set when every unit was a fixed 85px banner. As units grew taller (portrait singles, multi-ad lists), the clip became a bug. The reset is now always included.
 
 ### Border full-width breakout
 When `.wrapper` has `padding:16px`, borders on `.hero` don't span full width. Break out:
@@ -644,30 +661,50 @@ When `.wrapper` has `padding:16px`, borders on `.hero` don't span full width. Br
 }
 ```
 
-### Multi-ad unit `.sub-line2` position
-In single-ad units, `.sub-line2` is `position:absolute` top-right or bottom-right.
-In multi-ad list units, `.sub-line2` is inside `.dianomi-wt` and sits at the very bottom of `.wrapper` as attribution.
+**Why:** Padding on `.wrapper` creates an inner content area narrower than the container. A `border-bottom` on `.hero` only spans the content width. Negative horizontal margins pull `.hero` out to the wrapper's full edge width; matching padding restores the content alignment. Discovered when a publisher required full-width dividers between ad slots but the unit had 16px side padding.
 
-### `span.line2` vs `div.line2`
-- `div.line2` → unit heading ("Around the web") → **STYLE THIS**
-- `span.line2` → JS-injected "Advertisement" text per item → **ALWAYS HIDE**
+### Font loading — CSS field vs Header Html field
+Fonts go in Header Html field as `<link>` or `@font-face` tags. In the CSS field, just reference by family name.
 
-### Font loading
-Fonts go in Header Html field as `<link>` tags, NOT in the CSS field. In CSS, just reference by family name:
-```css
-/* WRONG — don't do this in CSS field: */
-@import url('https://fonts.googleapis.com/...');
+**Why:** The CSS field is loaded as an external stylesheet via a `<link>` tag in the iframe head. Google Fonts `@import` can technically work here, but `@font-face` with relative paths like `/partner/marketwatch/fonts/...` resolves relative to the Dianomi domain, not the publisher. The Header Html field renders in the document head itself where these paths resolve correctly. Confirmed: custom publisher fonts only loaded when `@font-face` was moved from CSS field to Header Html.
 
-/* RIGHT: */
-.maintext { font-family: 'Merriweather', serif; }
-```
-
-### `::before` special characters
-Use unicode escapes to avoid encoding issues:
+### Unicode escapes for `content:` values
+Use unicode escapes to avoid encoding issues with special characters:
 ```css
 content: "ADVERTISEMENT \00B7 "; /* middle dot · */
 content: "\2022 ";               /* bullet • */
 ```
+
+**Why:** When the CSS is pasted into the Dianomi admin form, special characters can get corrupted depending on browser encoding. Unicode escapes are ASCII-safe and always render correctly. Discovered when a middle dot `·` appeared as a broken glyph after saving the subtype.
+
+---
+
+## WHY WE BUILD CSS THE WAY WE DO — REASONING
+
+This section explains the thinking behind non-obvious architectural decisions, so you understand the *why* not just the *what*.
+
+**Why `display:flex` instead of `display:table` or `float`?**
+The Dianomi DOM is fixed — you can't add wrapper elements. `display:table` needs table-cell children, and `float` requires clearfix hacks and breaks in flex contexts. `display:flex` on `.wrapper` and `.dianomihref` gives full layout control with a single property and works cleanly with `order` for image/text reordering. Legacy CSS used `display:table` + `float:left` (you'll see this in old production CNN/MarketWatch units) but these cause layout bugs at non-integer widths and are harder to make responsive. All new units should use flex.
+
+**Why does image/text reorder require `order` on `.dianomihref`'s children rather than DOM order?**
+The Element Order admin field *does* change DOM order server-side. But you can also use CSS `order` on `.text` and `img` inside `.dianomihref` because both are direct children of that flex container. Confirmed working in production: `.text { order:1 } .hero img { order:2 }` places text first visually regardless of DOM order. This lets you control visual order purely via CSS without touching the admin field.
+
+**Why `position:absolute` on `.sub-line2` rather than a flex item?**
+The Dianomi logo needs to appear at a consistent position (usually bottom-right or top-right of the entire unit) regardless of how many ad slots exist or how tall the content is. Making it a flex item would place it in the document flow and affect card layout. `position:absolute` on `.sub-line2` with `.wrapper { position:relative }` pins it to the unit corner precisely, unaffected by content height.
+
+**Why do some selectors need `!important`?**
+Three specific cases:
+1. `.dianomi_provider_short { display:block !important }` — Dianomi injects `style="display:inline"` at runtime
+2. `.text { position:static !important }` — Dianomi JS may inject `position:absolute`
+3. `.hero img { object-fit:cover !important }` — sometimes needed because Dianomi injects inline image styles
+
+Only these three cases. Don't use `!important` elsewhere — it makes future overrides harder and signals something is fighting the browser's cascade rather than working with it.
+
+**Why write each selector exactly once in a specific order?**
+Because the Dianomi CSS field is a complete, standalone stylesheet — there's no cascading from another file below it. When the same selector appears twice, browsers apply the second one, making the first one dead code that confuses readers and causes bugs when the second one gets edited independently. Writing in logical order (body → layout → attribution → slots → content → typography → hidden → media) makes the intent readable and prevents accidental overrides.
+
+**Why does the tool's refine mode exist?**
+One-shot CSS generation from a screenshot is inherently imperfect — the model can match the broad layout but will miss specific spacing, exact font sizes, brand colours, and edge cases that are hard to read from a compressed image. The refine loop (generate → preview → describe what's wrong → refine) mirrors how I (Claude) worked through CSS with the publisher team: rough first draft, then specific targeted corrections. Each refinement round sends only the feedback + current CSS + screenshot (not the full skill file again), keeping token costs low.
 
 ---
 
@@ -796,7 +833,7 @@ When given a screenshot, follow this exact sequence:
 **STEP 0 — UNDERSTAND THE UNIT CONTEXT**
 
 You will be told the unit's base dimensions (e.g. "970×250") and its type:
-- **IAB Fixed** (300×600, 300×250, 970×250, 728×90 etc): these are standard ad sizes seen mostly on desktop. The unit should behave as a fixed-proportion box — it can shrink naturally as its container narrows, but it should NOT reflow into a different layout. No breakpoint-driven restructuring. Use `max-width:100%` on the wrapper so it never overflows, and let the browser shrink it proportionally. Avoid heavy media queries that change `flex-direction` or hide elements.
+- **IAB Fixed** (300×600, 300×250, 970×250, 728×90 etc): these are standard ad sizes seen mostly on desktop. The unit should behave as a fixed-proportion box — it can shrink naturally as its container narrows, but it should NOT reflow into a different layout. Use `max-width:100%` on the wrapper so it never overflows, and let the browser shrink it proportionally. Include ONE small-viewport fallback query (around 480px) that stacks any horizontal layout vertically so the unit doesn't become illegible on a phone — but this single query should only change `flex-direction` or `width`, not restructure the whole unit. Do not add multiple breakpoints.
 - **Responsive** (below-article, in-article, custom bespoke units): these appear across desktop and mobile and should genuinely reflow — stack vertically on narrow viewports, adjust font sizes, potentially hide non-essential elements at small sizes. Use full breakpoint-driven responsive CSS as shown in the pattern examples.
 
 The dimensions given are context for how to think about proportions (image aspect ratios, font scale relative to container width) — they are not necessarily hardcoded into the CSS as fixed pixel values unless the screenshot clearly shows a fixed-size box.
