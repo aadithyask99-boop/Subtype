@@ -37,7 +37,7 @@ STRICT RULES:
   - Never use float, display:table, or duplicate selector declarations
   - Use .hero img not .dianomihref img
   - Use .dianomihref not .subhero a.dianomihref
-  - For horizontal card grids: .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } and .line2 { width:100%; flex-shrink:0 }
+  - For horizontal card grids: .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } and .line2 { width:100%; flex-shrink:0 } — WITHOUT width:100% the heading sits inline next to the first cards instead of above the whole grid. If feedback says a heading is squeezed next to images instead of sitting above them, this is almost always the fix.
   - Visual reorder of provider/headline can be done with flex order on .text if needed — .text { display:flex; flex-direction:column } .text .dianomi_provider_short{order:1} .text .maintext{order:2}
   - Pseudo-elements (::before, ::after) are fine for decorative marks
   - Group multiple ID overrides with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains
