@@ -12,7 +12,15 @@ You will receive:
 
 Your job: output a corrected, complete CSS file that fixes the issues described.
 
-BEFORE WRITING: List every selector that appears in the current CSS. Your output must preserve every one of them unless the feedback explicitly says to remove something. Do not silently drop selectors (e.g. .line2, .sub-line2) while rewriting — this is the most common mistake to avoid.
+MANDATORY METHODOLOGY — follow these steps in order:
+1. Start by mentally reproducing the ENTIRE current CSS exactly as given — every selector, every property, every value, including things added in previous rounds (borders, dividers, spacing fixes, position overrides, media queries).
+2. Read the feedback and identify ONLY the specific properties that need to change to address it.
+3. Write your output by copying the current CSS verbatim, then modifying ONLY the properties identified in step 2. Every other property, rule, and value must appear in your output byte-for-byte identical to the input.
+4. Before finishing, compare your output against the input rule by rule. If a rule existed in the input and you cannot find it in your output, you have made an error — put it back.
+
+WHY THIS MATTERS: previous refinement rounds fixed real issues (a border, a position, a spacing value) that the person confirmed were correct. If you regenerate CSS "from scratch" using your general knowledge instead of patching the actual input, you will silently undo confirmed-correct work — even if you don't touch the affected selector name, you may still rewrite its contents differently than what was there. This has happened before and is the single most damaging failure mode in this system. Treat the current CSS as ground truth to preserve, not as a rough draft to improve.
+
+If feedback mentions "border" — check whether it likely means a full-width horizontal divider line (border-bottom spanning the full width of a section) rather than a thickness change. Default to thin borders (1-2px) unless the screenshot clearly shows something thicker. Reason about border width as a small proportion of the container size, not as an absolute guess.
 
 STRICT RULES:
 - FORMATTING: every rule spans multiple lines. Selector, opening brace, one property per line indented 2 spaces, closing brace alone, blank line, next rule. NEVER compress a rule onto one line.
@@ -33,6 +41,13 @@ STRICT RULES:
   - Visual reorder of provider/headline can be done with flex order on .text if needed — .text { display:flex; flex-direction:column } .text .dianomi_provider_short{order:1} .text .maintext{order:2}
   - Pseudo-elements (::before, ::after) are fine for decorative marks
   - Group multiple ID overrides with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains
+
+WHY THESE RULES EXIST (so you apply them correctly, not just mechanically):
+- .dianomi_provider_short needs !important because Dianomi injects style="display:inline" on it at runtime, which beats a plain class rule
+- .text needs position:static !important because Dianomi's JS sometimes sets position:absolute on it after page load, breaking flex layouts
+- span.line2 (JS-injected "Advertisement" text) and div.line2 (the real heading label like "Sponsored Content") share a class name but are different elements — hiding one without qualifying the selector accidentally hides both
+- .sub-line2 (the Dianomi logo) is a sibling of .hero, not inside it — .hero img is always safe from accidentally targeting the logo
+- Full-width borders on .hero need negative-margin breakout when .wrapper has padding, because a border-bottom on .hero only spans the padded content width otherwise
 
 Start directly with the first CSS rule. No preamble.`;
 
@@ -55,6 +70,7 @@ module.exports = async function handler(req, res) {
     numAds = 1,
     order = 'provider,text',
     headerElements = {},
+    logoPosition = null,
     widthPx = null,
     heightPx = null,
     unitType = 'iab',
@@ -63,6 +79,13 @@ module.exports = async function handler(req, res) {
 
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
   if (!feedback) { return res.status(400).json({ error: 'feedback required' }); }
+
+  const logoNote = logoPosition
+    ? `
+
+LOGO POSITION — ALREADY DELIBERATELY SET, DO NOT MOVE:
+The .sub-line2 (Dianomi logo) has been manually positioned at "${logoPosition.position}" on desktop${logoPosition.hasMobileOverride ? ` and "${logoPosition.mobilePosition}" on mobile via a max-width:480px media query` : ''}. This was a deliberate choice, not something you generated. PRESERVE this exact position and its media query byte-for-byte in your output unless the feedback explicitly asks to reposition the logo. Do not "fix" or "improve" this positioning on your own initiative.`
+    : '';
 
   const unitTypeLabel = unitType === 'responsive' ? 'Responsive' : 'IAB Fixed';
   const dimensionNote = widthPx && heightPx
@@ -87,7 +110,7 @@ ${unitType === 'iab'
 - YAC icon (.dianomi-yac): ${headerElements.yac ? 'PRESENT' : 'NOT PRESENT'}
 - Unit heading (div.line2): ${headerElements.line2 ? `PRESENT — text: "${headerElements.line2Text || 'Sponsored Content'}"` : 'NOT PRESENT'}
 - Action script (.action): ${headerElements.action ? 'PRESENT — fills .action with "Read More"' : 'NOT PRESENT'}
-${dimensionNote}`;
+${dimensionNote}${logoNote}`;
 
   const userMessage = `This is refinement round ${round}.
 

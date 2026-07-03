@@ -472,6 +472,14 @@ function getHeaderToggleState() {
   };
 }
 
+function getLogoPositionState() {
+  return {
+    position: document.getElementById('logo-pos').value,
+    hasMobileOverride: document.getElementById('tg-logo-mobile').checked,
+    mobilePosition: document.getElementById('logo-pos-mobile').value
+  };
+}
+
 function rebuildHeaderFromToggles() {
   var opts = getHeaderToggleState();
   setHeader(buildHeaderHtml(opts));
@@ -851,6 +859,7 @@ async function refineCSS(){
         numAds: S.numAds,
         order: S.order,
         headerElements: getHeaderToggleState(),
+        logoPosition: getLogoPositionState(),
         widthPx: lastGenWidthPx,
         heightPx: lastGenHeightPx,
         unitType: S.unitType,
@@ -1009,7 +1018,14 @@ window.addEventListener('DOMContentLoaded',function(){
 
   document.getElementById('unit-type-btns-refine').addEventListener('click',function(e){
     var btn=e.target.closest('[data-unittype]');if(!btn)return;
+    // Only auto-convert if this actually has generated CSS already (refine panel visible with image)
+    var hasImage = document.getElementById('refine-has-image').style.display !== 'none';
+    var wasChange = S.unitType !== btn.dataset.unittype;
     setUnitTypeUI(btn.dataset.unittype);
+    if(hasImage && wasChange){
+      // One-click preset switch: trigger refine immediately with auto-injected conversion text
+      refineCSS();
+    }
   });
 
   // Dimension preset buttons in upload modal — also sync main preview sliders
