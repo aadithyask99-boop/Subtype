@@ -260,6 +260,31 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
       </div>
     </div>
 
+    <!-- REFINE PANEL — persistent, collapsible, stays open between rounds -->
+    <div class="es collapsed" id="sec-refine">
+      <div class="eh" id="hd-refine">
+        <span class="et">Refine CSS</span>
+        <span class="eb" id="refine-badge">Upload a screenshot first</span>
+        <span class="ch" id="ch-refine">▼</span>
+      </div>
+      <div class="ebody hidden" id="bd-refine">
+        <div style="padding:10px;display:flex;flex-direction:column;gap:8px;height:100%;box-sizing:border-box;">
+          <!-- Shows reference image once uploaded -->
+          <div id="refine-no-image" style="font-size:11px;color:var(--text-dim);text-align:center;padding:16px 0;">Upload a screenshot via "✦ Screenshot → CSS" first</div>
+          <div id="refine-has-image" style="display:none;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <img id="refine-thumb" style="width:120px;height:75px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--border);">
+              <div style="flex:1;font-size:10px;color:var(--text-dim);line-height:1.5;">Compare preview with reference. Describe what needs fixing and hit Refine.<br><span style="color:var(--success);" id="refine-round-label"></span></div>
+            </div>
+            <textarea id="refine-input" placeholder='e.g. "cards should be horizontal not vertical", "font too large", "image needs rounded corners 8px", "gap between cards too wide"' style="width:100%;height:70px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:11px;font-family:system-ui,sans-serif;padding:7px;border-radius:var(--radius);resize:vertical;outline:none;box-sizing:border-box;"></textarea>
+            <div style="font-size:10px;color:var(--text-dim);">Cmd+Enter to refine</div>
+            <div style="font-size:10px;color:var(--success);min-height:14px;" id="refine-status"></div>
+            <button class="modal-generate" id="refine-btn" style="width:100%;padding:7px;">✦ Refine CSS</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <div class="right">
@@ -275,48 +300,26 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
   </div>
 </div>
 
-<!-- SCREENSHOT MODAL -->
+<!-- SCREENSHOT MODAL — upload only, no refine phase -->
 <div class="modal-overlay" id="modal">
-  <div class="modal" style="width:540px;">
+  <div class="modal">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-      <div class="modal-title" id="modal-title">✦ Screenshot → CSS</div>
+      <div class="modal-title">✦ Screenshot → CSS</div>
       <button id="modal-x" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;">✕</button>
     </div>
-
-    <!-- PHASE 1: Upload -->
-    <div id="phase-upload">
-      <div class="modal-sub">Upload a screenshot of a Dianomi ad unit. Gemini will analyse it and generate CSS matching the layout, typography and colours.</div>
-      <div class="drop-zone" id="drop-zone" style="margin-top:12px;">
-        <input type="file" id="file-input" accept="image/*">
-        <div class="drop-zone-icon">⬆</div>
-        <div>Drop image here or <strong>click to upload</strong></div>
-        <div style="margin-top:4px;font-size:10px;color:var(--text-dim);">Also supports Ctrl+V paste</div>
-      </div>
-      <img class="modal-preview" id="modal-preview">
-      <div class="gen-status" id="gen-status"></div>
-      <div class="modal-actions" style="margin-top:12px;">
-        <button class="modal-cancel" id="modal-cancel">Cancel</button>
-        <button class="modal-generate" id="modal-generate" disabled>Generate CSS</button>
-      </div>
+    <div class="modal-sub">Upload a screenshot of a Dianomi ad unit. Gemini will analyse it and generate CSS matching the layout, typography and colours.</div>
+    <div class="drop-zone" id="drop-zone" style="margin-top:12px;">
+      <input type="file" id="file-input" accept="image/*">
+      <div class="drop-zone-icon">⬆</div>
+      <div>Drop image here or <strong>click to upload</strong></div>
+      <div style="margin-top:4px;font-size:10px;color:var(--text-dim);">Also supports Ctrl+V paste</div>
     </div>
-
-    <!-- PHASE 2: Refine (shown after first generation) -->
-    <div id="phase-refine" style="display:none;">
-      <div style="display:flex;gap:12px;margin-bottom:12px;">
-        <img id="refine-thumb" style="width:160px;height:100px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--border);">
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
-          <div style="font-size:11px;color:var(--text-dim);">CSS generated. Compare the preview with your reference image and describe what needs fixing.</div>
-          <div style="font-size:10px;color:var(--success);" id="refine-round-label">Round 1 complete</div>
-        </div>
-      </div>
-      <textarea id="refine-input" placeholder="e.g. &quot;images should be on the left not top&quot;, &quot;headline font too large&quot;, &quot;gap between cards too wide&quot;, &quot;background should be #f5f5f5&quot;" style="width:100%;height:80px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:system-ui,sans-serif;padding:8px;border-radius:var(--radius);resize:vertical;outline:none;box-sizing:border-box;"></textarea>
-      <div class="gen-status" id="refine-status" style="margin-top:6px;min-height:16px;"></div>
-      <div class="modal-actions" style="margin-top:10px;">
-        <button class="modal-cancel" id="refine-cancel">Close</button>
-        <button class="modal-generate" id="refine-btn">✦ Refine CSS</button>
-      </div>
+    <img class="modal-preview" id="modal-preview">
+    <div class="gen-status" id="gen-status"></div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="modal-cancel" id="modal-cancel">Cancel</button>
+      <button class="modal-generate" id="modal-generate" disabled>Generate CSS</button>
     </div>
-
   </div>
 </div>
 
@@ -540,7 +543,7 @@ function setOrderUI(o){
 // ─────────────────────────────────────────────
 // SECTION TOGGLE
 // ─────────────────────────────────────────────
-var SEC={header:false,css:true,html:false};
+var SEC={header:false,css:true,html:false,refine:false};
 function toggleSec(name){
   SEC[name]=!SEC[name];
   var body=document.getElementById('bd-'+name);
@@ -614,9 +617,6 @@ function dlFile(content,filename,type){
 // ─────────────────────────────────────────────
 function openModal(){
   document.getElementById('modal').classList.add('show');
-  document.getElementById('phase-upload').style.display='block';
-  document.getElementById('phase-refine').style.display='none';
-  document.getElementById('modal-title').textContent='✦ Screenshot → CSS';
 }
 
 function closeModal(){
@@ -626,26 +626,23 @@ function closeModal(){
   document.getElementById('modal-generate').disabled=true;
   document.getElementById('gen-status').textContent='';
   document.getElementById('file-input').value='';
-  document.getElementById('refine-input').value='';
-  document.getElementById('refine-status').textContent='';
-  document.getElementById('phase-upload').style.display='block';
-  document.getElementById('phase-refine').style.display='none';
-  pendingImageBase64=null;
-  refineRound=0;
 }
 
 function switchToRefinePhase(){
   refineRound++;
-  document.getElementById('phase-upload').style.display='none';
-  document.getElementById('phase-refine').style.display='block';
-  document.getElementById('modal-title').textContent='✦ Refine CSS';
-  document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — preview updated';
-  // Show thumbnail of reference image
-  var thumb=document.getElementById('refine-thumb');
-  thumb.src='data:'+pendingMimeType+';base64,'+pendingImageBase64;
+  closeModal();
+  // Show refine panel in sidebar
+  document.getElementById('refine-no-image').style.display='none';
+  var hasImg = document.getElementById('refine-has-image');
+  hasImg.style.display='flex';
+  // Set thumbnail
+  document.getElementById('refine-thumb').src='data:'+pendingMimeType+';base64,'+pendingImageBase64;
+  document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — check preview';
+  document.getElementById('refine-badge').textContent='Round '+refineRound+' complete';
   document.getElementById('refine-input').value='';
   document.getElementById('refine-status').textContent='';
-  document.getElementById('refine-input').focus();
+  // Open the refine section if collapsed
+  if(!SEC.refine) toggleSec('refine');
 }
 
 function handleImageFile(file){
@@ -1011,6 +1008,7 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('hd-header').addEventListener('click',function(){toggleSec('header');});
   document.getElementById('hd-css').addEventListener('click',function(){toggleSec('css');});
   document.getElementById('hd-html').addEventListener('click',function(){toggleSec('html');});
+  document.getElementById('hd-refine').addEventListener('click',function(){toggleSec('refine');});
 
   document.getElementById('dl-css').addEventListener('click',function(){dlFile(getCSS(),'dianomi-subtype.css','text/css');});
   document.getElementById('dl-html').addEventListener('click',function(){
@@ -1021,12 +1019,11 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('ss-btn').addEventListener('click',openModal);
   document.getElementById('modal-x').addEventListener('click', closeModal);
   document.getElementById('modal-cancel').addEventListener('click',closeModal);
-  document.getElementById('refine-cancel').addEventListener('click',closeModal);
   document.getElementById('refine-btn').addEventListener('click',refineCSS);
   document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
   // Allow Enter key in refine input to trigger refine
   document.getElementById('refine-input').addEventListener('keydown',function(e){
-    if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){ refineCSS(); }
+    if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); refineCSS(); }
   });
 
   var dz=document.getElementById('drop-zone');

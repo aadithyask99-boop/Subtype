@@ -133,8 +133,8 @@ This HTML is fixed. You cannot add, remove or reorder elements. CSS is the only 
 | `.hero:not(.last)` | All slots except last | Use for dividers: `border-bottom` + `padding-bottom` + `margin-bottom`. |
 | `#dianomi_ad_1` | First slot by ID | Can target individually for special treatment. |
 | `.subhero` | Inner wrapper in each hero | Usually `display:block`. |
-| `.subhero a.dianomihref` | **The real layout container** | `display:flex`. All card layout happens here. |
-| `.hero img` or `.subhero a.dianomihref img` | Ad image | No hardcoded height/width attrs in HTML. Let CSS control. |
+| `.dianomihref` | **The real layout container** | `display:flex`. All card layout happens here. |
+| `.hero img` or `.dianomihref img` | Ad image | No hardcoded height/width attrs in HTML. Let CSS control. |
 | `.text` | Text block | **Always `position:static !important`**. |
 | `.dianomi_provider_short` | Advertiser/provider name | **Always `display:block !important`** (overrides injected `style="display:inline"`). |
 | `.maintext` | Ad headline | Dynamic content from advertiser. |
@@ -146,7 +146,7 @@ This HTML is fixed. You cannot add, remove or reorder elements. CSS is the only 
 
 ## CRITICAL CSS RULES — NEVER VIOLATE THESE
 
-1. **Always use `display:flex`** on `.wrapper` and `.subhero a.dianomihref`. Never `display:table`, never `float`.
+1. **Always use `display:flex`** on `.wrapper` and `.dianomihref`. Never `display:table`, never `float`.
 
 2. **`.text` must always have `position:static !important`** — Dianomi's JS sometimes injects `position:absolute` which breaks layouts.
 
@@ -199,22 +199,22 @@ Used for: MarketWatch, large bespoke units, app redesign units
   padding: 16px;
   background: #fff;
 }
-.subhero a.dianomihref {
+.dianomihref {
   display: flex;
   flex-direction: column;
   text-decoration: none;
   color: inherit;
 }
 .text { order: 1; position: static !important; }
-.subhero a.dianomihref img { order: 2; width: 100%; height: auto; margin-top: 12px; object-fit: cover; }
+.dianomihref img { order: 2; width: 100%; height: auto; margin-top: 12px; object-fit: cover; }
 ```
 
 ### Pattern B: Portrait single-ad (image above text)
 Used for: most standard single-image units
 
 ```css
-.subhero a.dianomihref { display: flex; flex-direction: column; }
-.subhero a.dianomihref img { order: 1; width: 100%; height: auto; }
+.dianomihref { display: flex; flex-direction: column; }
+.dianomihref img { order: 1; width: 100%; height: auto; }
 .text { order: 2; padding-top: 12px; position: static !important; }
 ```
 
@@ -222,13 +222,13 @@ Used for: most standard single-image units
 Used for: 970×250, 728×90, wide format units
 
 ```css
-.subhero a.dianomihref {
+.dianomihref {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 20px;
 }
-.subhero a.dianomihref img { flex-shrink: 0; width: 300px; height: 180px; object-fit: cover; }
+.dianomihref img { flex-shrink: 0; width: 300px; height: 180px; object-fit: cover; }
 .text { flex: 1; position: static !important; }
 .action {
   display: inline-block;
@@ -254,14 +254,14 @@ Used for: Telegraph, right-rail 5-image units
 }
 .hero { width: 100%; box-sizing: border-box; }
 .hero:not(.last) { border-bottom: 1px solid #ebebeb; padding-bottom: 12px; margin-bottom: 12px; }
-.subhero a.dianomihref {
+.dianomihref {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   gap: 10px;
   text-decoration: none;
 }
-.subhero a.dianomihref img { width: 80px; height: 60px; object-fit: cover; flex-shrink: 0; border-radius: 4px; }
+.dianomihref img { width: 80px; height: 60px; object-fit: cover; flex-shrink: 0; border-radius: 4px; }
 .text { flex: 1; min-width: 0; position: static !important; }
 ```
 
@@ -287,8 +287,8 @@ IMPORTANT: `.line2` is a sibling of `.hero` inside `.wrapper`. To make `.line2` 
 }
 .line2 .title { font: inherit; }
 .hero { flex: 1 1 0; min-width: 0; box-sizing: border-box; }
-.subhero a.dianomihref { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
-.subhero a.dianomihref img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; margin-bottom: 10px; }
+.dianomihref { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+.dianomihref img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; margin-bottom: 10px; }
 .text { position: static !important; }
 ```
 
@@ -346,7 +346,7 @@ body {
   padding-right: 16px;
 }
 
-.subhero a.dianomihref {
+.dianomihref {
   display: flex;
   flex-direction: column;
   text-decoration: none;
@@ -363,7 +363,7 @@ body {
   padding-bottom: 12px;
 }
 
-.subhero a.dianomihref img {
+.dianomihref img {
   order: 2;
   width: 100%;
   height: auto;
@@ -457,13 +457,13 @@ body {
   padding-bottom: 12px; margin-bottom: 12px;
 }
 
-.subhero a.dianomihref {
+.dianomihref {
   display: flex; flex-direction: row;
   align-items: flex-start; gap: 10px;
   text-decoration: none; color: inherit;
 }
 
-.subhero a.dianomihref img {
+.dianomihref img {
   width: 80px; height: 60px;
   object-fit: cover; flex-shrink: 0;
   display: block; border-radius: 4px;
@@ -495,12 +495,12 @@ span.line2 { display: none; }
 }
 
 .action { display: none; }
-.subhero a.dianomihref:hover .maintext { color: #0050d0; }
+.dianomihref:hover .maintext { color: #0050d0; }
 
 @media (max-width: 400px) {
   .wrapper { padding: 10px 10px 36px 10px; }
   .maintext { font-size: 12px; }
-  .subhero a.dianomihref img { width: 70px; height: 52px; }
+  .dianomihref img { width: 70px; height: 52px; }
 }
 ```
 
@@ -559,14 +559,14 @@ body {
   box-sizing: border-box;
 }
 
-.subhero a.dianomihref {
+.dianomihref {
   display: flex;
   flex-direction: column;
   text-decoration: none;
   color: inherit;
 }
 
-.subhero a.dianomihref img {
+.dianomihref img {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
@@ -619,9 +619,9 @@ In some legacy unit configurations, Dianomi JS sets `position:absolute` on `.tex
 ### Image reorder — must target `a.dianomihref` not `.hero`
 Both `img` and `.text` live inside `a.dianomihref`. Flex `order` must be set at that level:
 ```css
-.subhero a.dianomihref { display:flex; flex-direction:column; }
-.subhero a.dianomihref .text { order:-1; } /* text first */
-.subhero a.dianomihref img { order:1; }   /* image second */
+.dianomihref { display:flex; flex-direction:column; }
+.dianomihref .text { order:-1; } /* text first */
+.dianomihref img { order:1; }   /* image second */
 ```
 NOT on `.hero` or `.subhero` — those are one level too high.
 
@@ -697,22 +697,35 @@ When generating CSS, assume the order shown in the screenshot is correct and don
 
 ## CSS GENERATION INSTRUCTIONS
 
-When given a screenshot:
+When given a screenshot, follow this exact sequence:
 
-1. **Identify the layout family** (portrait single, landscape single, list thumbnail-left, grid horizontal)
-2. **Count the ad slots** visible
-3. **Note the heading** — is there a "Sponsored Content" / "Around the web" label? That's `div.line2`.
-4. **Note image treatment** — rounded corners, aspect ratio, position relative to text
-5. **Note typography** — serif vs sans, size relationships, colour (especially if provider/headline have different colours)
-6. **Note spacing** — padding around wrapper, gaps between items, internal text padding
-7. **Note the Dianomi attribution position** — top-right, bottom-right, or bottom-centre
-8. **Generate complete CSS** using the patterns above as starting points, modifying to match what you see
+**STEP 1 — LAYOUT DECISION (do this first, everything else depends on it)**
 
-**STRICT OUTPUT RULES — violations produce broken CSS:**
-- Each CSS selector must appear EXACTLY ONCE. Never declare `.wrapper { }` twice. Plan the full ruleset for each selector before writing it.
-- No CSS comments whatsoever. Not even `/* ... */`. Pure CSS rules only.
-- No redundant properties. No `float: none` unless something was floated. No `display: block` on block elements.
-- For the 4-column grid pattern: write `.wrapper { display:flex; flex-direction:row; flex-wrap:wrap }` ONCE. Give `.line2 { width:100% }` to make it span full width. Do not fight the flex layout.
-- Do not repeat properties that are already in `body` (e.g. `box-sizing` if already set globally).
+Count the ad slots visible in the screenshot. Then:
+- **1 slot, image fills most of the width, text below or above** → Pattern A or B (portrait single). `.wrapper { flex-direction:column }` `.dianomihref { flex-direction:column }`
+- **1 slot, image on LEFT side, text on RIGHT, wide format** → Pattern C (landscape). `.dianomihref { flex-direction:row }`
+- **2–5 slots stacked vertically, small thumbnail LEFT, text RIGHT per row** → Pattern D (list). `.wrapper { flex-direction:column }` `.dianomihref { flex-direction:row }`
+- **2+ slots side by side horizontally (cards in a row, each card has image-above-text)** → Pattern E (horizontal grid). `.wrapper { flex-direction:row; flex-wrap:wrap }` `.hero { flex:1 1 0 }` `.dianomihref { flex-direction:column }`
 
-Output ONLY valid CSS. No markdown fences, no backticks, no comments. Start directly with the first CSS rule. Aim for 40-60 rules total.
+**If the screenshot shows multiple cards SIDE BY SIDE in a row, that is Pattern E regardless of how many cards there are.** Do not default to column layout. Use `flex-direction:row` on `.wrapper`.
+
+**STEP 2 — OBSERVE DETAILS**
+2. Count exact number of ad slots
+3. Note heading label (div.line2) — text, font, border below?
+4. Image treatment — aspect ratio, rounded corners (and how much), position
+5. Typography — font family (serif/sans), sizes, colours, weight
+6. Spacing — wrapper padding, gap between slots, text padding
+7. Attribution logo position — top-right, bottom-right, bottom-centre
+
+**STEP 3 — WRITE CSS ONCE, CORRECTLY**
+Plan each selector's full ruleset before writing. Write it once. Do not come back and override it.
+
+**STRICT OUTPUT RULES:**
+- Each selector appears EXACTLY ONCE — no duplicate declarations
+- No CSS comments. No markdown. Start with first rule directly.
+- No `float`, no `display:table`, no redundant properties
+- `.wrapper` declared once with the correct `flex-direction` from Step 1
+- `.dianomihref` (not `.subhero a.dianomihref`) — use the short form
+- Aim for 40-60 rules total
+
+Output ONLY valid CSS.

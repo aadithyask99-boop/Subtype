@@ -23,9 +23,9 @@ const REF_CSS_1 = `body { padding: 0; margin: 0; width: 100%; height: auto; over
 .sub-line2 img { width: 55px; height: auto; display: block; }
 .hero { width: 100%; box-sizing: border-box; }
 .hero:not(.last) { border-bottom: 1px solid #e0e0e0; padding-bottom: 20px; margin-bottom: 20px; }
-.subhero a.dianomihref { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+.dianomihref { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
 .text { order: 1; display: flex; flex-direction: column; position: static !important; padding-bottom: 12px; }
-.subhero a.dianomihref img { order: 2; width: 100%; height: auto; display: block; object-fit: cover; }
+.dianomihref img { order: 2; width: 100%; height: auto; display: block; object-fit: cover; }
 .heading_top, .dianomiHeading.heading { display: none; }
 span.line2 { display: none; }
 .dianomi_provider_short { font-family: 'Roboto', sans-serif; font-size: 10px; font-weight: 700; color: #6A6A6A; text-transform: uppercase; letter-spacing: 0.5px; display: block !important; margin-bottom: 6px; }
@@ -43,8 +43,8 @@ const REF_CSS_2 = `body { margin: 0; padding: 0; width: 100%; height: auto; over
 .line2 .title { font: inherit; }
 .hero { width: 100%; box-sizing: border-box; }
 .hero:not(.last) { border-bottom: 1px solid #ebebeb; padding-bottom: 12px; margin-bottom: 12px; }
-.subhero a.dianomihref { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; text-decoration: none; color: inherit; }
-.subhero a.dianomihref img { width: 80px; height: 60px; object-fit: cover; flex-shrink: 0; display: block; border-radius: 4px; }
+.dianomihref { display: flex; flex-direction: row; align-items: flex-start; gap: 10px; text-decoration: none; color: inherit; }
+.dianomihref img { width: 80px; height: 60px; object-fit: cover; flex-shrink: 0; display: block; border-radius: 4px; }
 .text { flex: 1; display: flex; flex-direction: column; justify-content: center; position: static !important; box-sizing: border-box; min-width: 0; }
 .heading_top, .dianomiHeading.heading { display: none; }
 span.line2 { display: none; }
@@ -55,8 +55,8 @@ span.line2 { display: none; }
 const REF_CSS_3 = `body { margin: 0; padding: 0; width: 100%; height: auto; overflow: visible; box-sizing: border-box; font-family: 'Roboto', sans-serif; }
 .wrapper { width: 100%; height: auto; overflow: visible; background-color: #fff; padding: 0; box-sizing: border-box; display: flex; flex-direction: column; position: relative; }
 .hero { width: 100%; box-sizing: border-box; }
-.subhero a.dianomihref { display: flex; flex-direction: row; align-items: center; gap: 24px; text-decoration: none; color: inherit; }
-.subhero a.dianomihref img { flex-shrink: 0; width: 400px; height: 250px; object-fit: cover; display: block; }
+.dianomihref { display: flex; flex-direction: row; align-items: center; gap: 24px; text-decoration: none; color: inherit; }
+.dianomihref img { flex-shrink: 0; width: 400px; height: 250px; object-fit: cover; display: block; }
 .text { flex: 1; display: flex; flex-direction: column; justify-content: center; position: static !important; padding: 24px 24px 24px 0; }
 .heading_top, .dianomiHeading.heading { display: none; }
 span.line2 { display: none; }
@@ -64,8 +64,8 @@ span.line2 { display: none; }
 .dianomi_provider_short { font-family: 'Roboto', sans-serif; font-size: 15px; font-weight: 400; color: #444; display: block !important; margin-bottom: 16px; text-transform: none; letter-spacing: 0; }
 .action { display: inline-block; width: fit-content; padding: 12px 28px; background: #000; color: #fff; font-family: 'Roboto', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
 @media (max-width: 780px) {
-  .subhero a.dianomihref { flex-direction: column; align-items: flex-start; gap: 12px; }
-  .subhero a.dianomihref img { width: 100%; height: auto; aspect-ratio: 16/10; }
+  .dianomihref { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .dianomihref img { width: 100%; height: auto; aspect-ratio: 16/10; }
   .text { padding: 0 16px 16px 16px; }
   .maintext { font-size: 20px; }
 }`;
