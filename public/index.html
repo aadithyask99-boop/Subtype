@@ -580,17 +580,18 @@ function ensureLine2Styling() {
 
   css += defaultLine2;
   setCSS(css);
+  setTimeout(scrollCSSToBottomAndFlash, 50);
 }
 
 // ─────────────────────────────────────────────
 // CSS PRESETS
 // ─────────────────────────────────────────────
 var CP = {};
-CP['flex-baseline'] = 'body {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Roboto\', sans-serif;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff; padding: 16px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.sub-line2 { position: absolute; bottom: 16px; right: 16px; z-index: 1; }\n.sub-line2 img { width: 55px; height: auto; display: block; }\n\n.dianomi-wt { margin-bottom: 8px; }\n\n.line2 {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; color: #888;\n  text-transform: uppercase; letter-spacing: 0.5px;\n  margin-bottom: 10px; display: block;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #e8e8e8;\n  padding-bottom: 16px; margin-bottom: 16px;\n}\n\n.subhero a.dianomihref {\n  display: flex; flex-direction: column;\n  text-decoration: none; color: inherit;\n}\n\n.subhero a.dianomihref img {\n  width: 100%; height: auto; display: block;\n  object-fit: cover; order: 2; margin-top: 12px;\n}\n\n.text {\n  order: 1; display: flex; flex-direction: column;\n  position: static !important; box-sizing: border-box; width: 100%;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.dianomi_provider_short {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; font-weight: 700;\n  color: #888; text-transform: uppercase; letter-spacing: 0.5px;\n  display: block !important; margin-bottom: 6px;\n}\n\n.maintext {\n  font-family: \'Merriweather\', serif; font-size: 20px; font-weight: 700;\n  line-height: 1.25; color: #111; display: block; margin: 0;\n}\n\n.action { display: none; }\n\n.subhero a.dianomihref:hover .maintext { opacity: 0.75; }\n\n@media (max-width: 780px) {\n  .wrapper { padding: 12px; }\n  .sub-line2 { bottom: 12px; right: 12px; }\n  .hero:not(.last) { padding-bottom: 12px; margin-bottom: 12px; }\n  .maintext { font-size: 17px; }\n}';
+CP['flex-baseline'] = 'body {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Roboto\', sans-serif;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff; padding: 16px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.sub-line2 { position: absolute; bottom: 16px; right: 16px; z-index: 1; }\n.sub-line2 img { width: 55px; height: auto; display: block; }\n\n.dianomi-wt { margin-bottom: 8px; }\n\n.line2 {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; color: #888;\n  text-transform: uppercase; letter-spacing: 0.5px;\n  margin-bottom: 10px; display: block;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #e8e8e8;\n  padding-bottom: 16px; margin-bottom: 16px;\n}\n\n.dianomihref {\n  display: flex; flex-direction: column;\n  text-decoration: none; color: inherit;\n}\n\n.dianomihref img {\n  width: 100%; height: auto; display: block;\n  object-fit: cover; order: 2; margin-top: 12px;\n}\n\n.text {\n  order: 1; display: flex; flex-direction: column;\n  position: static !important; box-sizing: border-box; width: 100%;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.dianomi_provider_short {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; font-weight: 700;\n  color: #888; text-transform: uppercase; letter-spacing: 0.5px;\n  display: block !important; margin-bottom: 6px;\n}\n\n.maintext {\n  font-family: \'Merriweather\', serif; font-size: 20px; font-weight: 700;\n  line-height: 1.25; color: #111; display: block; margin: 0;\n}\n\n.action { display: none; }\n\n.dianomihref:hover .maintext { opacity: 0.75; }\n\n@media (max-width: 780px) {\n  .wrapper { padding: 12px; }\n  .sub-line2 { bottom: 12px; right: 12px; }\n  .hero:not(.last) { padding-bottom: 12px; margin-bottom: 12px; }\n  .maintext { font-size: 17px; }\n}';
 
-CP['list-300x600'] = '/* ================================================\n   5-IMAGE 300x600 RIGHT RAIL\n   Header Html: List — logo + YAC + line2\n   Num Ads: 5  |  Element Order: text, provider\n   ================================================ */\n\nbody {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Inter\', sans-serif;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff;\n  padding: 12px 14px 40px 14px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.dianomi-wt {\n  display: flex; align-items: center; margin-bottom: 10px;\n}\n\n.sub-line2 {\n  position: absolute; bottom: 12px; right: 14px;\n  z-index: 1; display: flex; align-items: center; gap: 4px;\n}\n.sub-line2 img.dianomi-lg { width: 53px; height: auto; display: inline; }\n.dianomi-yac img { height: 12px; width: auto; display: inline; }\n\n.line2 {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 600; color: #999;\n  text-transform: uppercase; letter-spacing: 0.8px;\n  margin-bottom: 12px; display: block;\n  border-bottom: 1px solid #ebebeb; padding-bottom: 10px;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; padding: 0; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #ebebeb;\n  padding-bottom: 12px; margin-bottom: 12px;\n}\n\n.subhero a.dianomihref {\n  display: flex; flex-direction: row;\n  align-items: flex-start; gap: 10px;\n  text-decoration: none; color: inherit;\n}\n\n.subhero a.dianomihref img {\n  width: 80px; height: 60px;\n  object-fit: cover; flex-shrink: 0;\n  display: block; border-radius: 4px;\n}\n\n.text {\n  flex: 1; display: flex; flex-direction: column;\n  justify-content: center;\n  position: static !important;\n  box-sizing: border-box; min-width: 0;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.maintext {\n  font-family: \'Inter\', sans-serif;\n  font-size: 13px; font-weight: 600;\n  line-height: 1.35; color: #1a1a1a;\n  display: block; margin: 0 0 4px 0;\n}\n\n.dianomi_provider_short {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 400; color: #999;\n  display: block !important;\n  text-transform: none; letter-spacing: 0;\n}\n\n.action { display: none; }\n\n.subhero a.dianomihref:hover .maintext { color: #0050d0; }\n\n@media (max-width: 400px) {\n  .wrapper { padding: 10px 10px 36px 10px; }\n  .maintext { font-size: 12px; }\n  .subhero a.dianomihref img { width: 70px; height: 52px; }\n}';
+CP['list-300x600'] = '/* ================================================\n   5-IMAGE 300x600 RIGHT RAIL\n   Header Html: List — logo + YAC + line2\n   Num Ads: 5  |  Element Order: text, provider\n   ================================================ */\n\nbody {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Inter\', sans-serif;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff;\n  padding: 12px 14px 40px 14px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.dianomi-wt {\n  display: flex; align-items: center; margin-bottom: 10px;\n}\n\n.sub-line2 {\n  position: absolute; bottom: 12px; right: 14px;\n  z-index: 1; display: flex; align-items: center; gap: 4px;\n}\n.sub-line2 img.dianomi-lg { width: 53px; height: auto; display: inline; }\n.dianomi-yac img { height: 12px; width: auto; display: inline; }\n\n.line2 {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 600; color: #999;\n  text-transform: uppercase; letter-spacing: 0.8px;\n  margin-bottom: 12px; display: block;\n  border-bottom: 1px solid #ebebeb; padding-bottom: 10px;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; padding: 0; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #ebebeb;\n  padding-bottom: 12px; margin-bottom: 12px;\n}\n\n.dianomihref {\n  display: flex; flex-direction: row;\n  align-items: flex-start; gap: 10px;\n  text-decoration: none; color: inherit;\n}\n\n.dianomihref img {\n  width: 80px; height: 60px;\n  object-fit: cover; flex-shrink: 0;\n  display: block; border-radius: 4px;\n}\n\n.text {\n  flex: 1; display: flex; flex-direction: column;\n  justify-content: center;\n  position: static !important;\n  box-sizing: border-box; min-width: 0;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.maintext {\n  font-family: \'Inter\', sans-serif;\n  font-size: 13px; font-weight: 600;\n  line-height: 1.35; color: #1a1a1a;\n  display: block; margin: 0 0 4px 0;\n}\n\n.dianomi_provider_short {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 400; color: #999;\n  display: block !important;\n  text-transform: none; letter-spacing: 0;\n}\n\n.action { display: none; }\n\n.dianomihref:hover .maintext { color: #0050d0; }\n\n@media (max-width: 400px) {\n  .wrapper { padding: 10px 10px 36px 10px; }\n  .maintext { font-size: 12px; }\n  .dianomihref img { width: 70px; height: 52px; }\n}';
 
-CP['landscape-970x250'] = 'body { margin: 0; padding: 0; width: 100%; height: auto; overflow: visible; box-sizing: border-box; font-family: \'Roboto\', sans-serif; }\n.wrapper { width: 100%; height: auto; overflow: visible; background-color: #fff; padding: 0; box-sizing: border-box; display: flex; flex-direction: column; position: relative; }\n.hero { width: 100%; box-sizing: border-box; }\n.subhero a.dianomihref { display: flex; flex-direction: row; align-items: center; gap: 24px; text-decoration: none; color: inherit; }\n.subhero a.dianomihref img { flex-shrink: 0; width: 400px; height: 250px; object-fit: cover; display: block; }\n.text { flex: 1; display: flex; flex-direction: column; justify-content: center; position: static !important; padding: 24px 24px 24px 0; }\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n.maintext { font-family: \'Roboto\', sans-serif; font-size: 28px; font-weight: 700; color: #1a1a1a; line-height: 1.25; display: block; margin: 0 0 8px 0; }\n.dianomi_provider_short { font-family: \'Roboto\', sans-serif; font-size: 15px; font-weight: 400; color: #444; display: block !important; margin-bottom: 16px; text-transform: none; letter-spacing: 0; }\n.action { display: inline-block; width: fit-content; padding: 12px 28px; background: #000; color: #fff; font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }\n@media (max-width: 780px) {\n  .subhero a.dianomihref { flex-direction: column; align-items: flex-start; gap: 12px; }\n  .subhero a.dianomihref img { width: 100%; height: auto; aspect-ratio: 16/10; }\n  .text { padding: 0 16px 16px 16px; }\n  .maintext { font-size: 20px; }\n}\n';
+CP['landscape-970x250'] = 'body { margin: 0; padding: 0; width: 100%; height: auto; overflow: visible; box-sizing: border-box; font-family: \'Roboto\', sans-serif; }\n.wrapper { width: 100%; height: auto; overflow: visible; background-color: #fff; padding: 0; box-sizing: border-box; display: flex; flex-direction: column; position: relative; }\n.hero { width: 100%; box-sizing: border-box; }\n.dianomihref { display: flex; flex-direction: row; align-items: center; gap: 24px; text-decoration: none; color: inherit; }\n.dianomihref img { flex-shrink: 0; width: 400px; height: 250px; object-fit: cover; display: block; }\n.text { flex: 1; display: flex; flex-direction: column; justify-content: center; position: static !important; padding: 24px 24px 24px 0; }\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n.maintext { font-family: \'Roboto\', sans-serif; font-size: 28px; font-weight: 700; color: #1a1a1a; line-height: 1.25; display: block; margin: 0 0 8px 0; }\n.dianomi_provider_short { font-family: \'Roboto\', sans-serif; font-size: 15px; font-weight: 400; color: #444; display: block !important; margin-bottom: 16px; text-transform: none; letter-spacing: 0; }\n.action { display: inline-block; width: fit-content; padding: 12px 28px; background: #000; color: #fff; font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }\n@media (max-width: 780px) {\n  .dianomihref { flex-direction: column; align-items: flex-start; gap: 12px; }\n  .dianomihref img { width: 100%; height: auto; aspect-ratio: 16/10; }\n  .text { padding: 0 16px 16px 16px; }\n  .maintext { font-size: 20px; }\n}\n';
 
 
 // ─────────────────────────────────────────────
@@ -637,6 +638,19 @@ function buildHTML(css,headerHtml,numAds,charLen,provLen,order){
 function getCSS(){return cmCSSReady&&cmCSS?cmCSS.getValue():document.getElementById('ta-css').value;}
 function getHeader(){if(cmHeaderReady&&cmHeader)return cmHeader.getValue();var e=document.getElementById('ta-header');return e?e.value:'';}
 function setCSS(val){if(cmCSSReady&&cmCSS){cmCSS.setValue(val);}else{var e=document.getElementById('ta-css');if(e)e.value=val;}}
+
+function scrollCSSToBottomAndFlash(){
+  if(cmCSSReady && cmCSS){
+    var lastLine = cmCSS.lineCount() - 1;
+    cmCSS.scrollIntoView({line: lastLine, ch: 0}, 100);
+    // Briefly highlight the last few lines so the change is unmissable
+    var wrapper = cmCSS.getWrapperElement();
+    wrapper.style.boxShadow = 'inset 0 0 0 2px var(--accent)';
+    setTimeout(function(){ wrapper.style.boxShadow = ''; }, 900);
+  }
+  // Also auto-expand the CSS section if it's collapsed
+  if(!SEC.css) toggleSec('css');
+}
 function setHeader(val){if(cmHeaderReady&&cmHeader){cmHeader.setValue(val);}else{var e=document.getElementById('ta-header');if(e)e.value=val;}}
 
 // ─────────────────────────────────────────────
@@ -1116,34 +1130,36 @@ window.addEventListener('DOMContentLoaded',function(){
     });
   }
 
-  document.getElementById('unit-type-btns').addEventListener('click',function(e){
-    var btn=e.target.closest('[data-unittype]');if(!btn)return;
-    setUnitTypeUI(btn.dataset.unittype);
-  });
-
-  document.getElementById('unit-type-btns-refine').addEventListener('click',function(e){
-    var btn=e.target.closest('[data-unittype]');if(!btn)return;
-    var newType=btn.dataset.unittype;
-    setUnitTypeUI(newType);
-
+  function applyUnitTypePreset(newType){
     if(getCSS().trim().length === 0){
-      document.getElementById('refine-status').textContent = 'Generate CSS first before applying a Unit Type preset.';
       return;
     }
-
-    // Unconditional preset apply — always runs on click, no gating on prior state
     if(newType === 'iab'){
       var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
       setCSS(convertedIAB);
       schedRender();
-      document.getElementById('refine-status').textContent = '✓ IAB Fixed applied instantly — media queries stripped, max-width:' + (lastGenWidthPx || 970) + 'px set.';
+      var s1 = document.getElementById('refine-status');
+      if(s1) s1.textContent = '✓ IAB Fixed applied instantly — media queries stripped, max-width:' + (lastGenWidthPx || 970) + 'px set.';
     } else {
       var convertedResp = convertToResponsiveLocal(getCSS());
       setCSS(convertedResp);
       schedRender();
-      document.getElementById('refine-status').textContent = '✓ Responsive applied instantly — breakpoints added at 768px and 480px. Use Refine below to fine-tune font sizes if needed.';
+      var s2 = document.getElementById('refine-status');
+      if(s2) s2.textContent = '✓ Responsive applied instantly — breakpoints added at 768px and 480px.';
     }
     unitTypeChangedSinceGen = false;
+  }
+
+  document.getElementById('unit-type-btns').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-unittype]');if(!btn)return;
+    setUnitTypeUI(btn.dataset.unittype);
+    applyUnitTypePreset(btn.dataset.unittype);
+  });
+
+  document.getElementById('unit-type-btns-refine').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-unittype]');if(!btn)return;
+    setUnitTypeUI(btn.dataset.unittype);
+    applyUnitTypePreset(btn.dataset.unittype);
   });
 
   // Dimension preset buttons in upload modal — also sync main preview sliders
@@ -1281,6 +1297,7 @@ window.addEventListener('DOMContentLoaded',function(){
 
     setCSS(css);
     schedRender();
+    setTimeout(scrollCSSToBottomAndFlash, 50);
   }
 
   document.getElementById('hd-header').addEventListener('click',function(){toggleSec('header');});
