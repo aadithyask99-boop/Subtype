@@ -76,6 +76,8 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) { return res.status(500).json({ error: 'GEMINI_API_KEY not configured' }); }
 
+  const ALLOWED_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'];
+
   const {
     imageBase64,
     mimeType = 'image/png',
@@ -88,11 +90,19 @@ module.exports = async function handler(req, res) {
     widthPx = null,
     heightPx = null,
     unitType = 'iab',
-    round = 1
+    round = 1,
+    model = 'gemini-2.5-flash'
   } = req.body || {};
 
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
   if (!feedback) { return res.status(400).json({ error: 'feedback required' }); }
+
+  const selectedModel = ALLOWED_MODELS.includes(model) ? model : 'gemini-2.5-flash';
+  const thinkingBudgetByModel = {
+    'gemini-2.5-pro': 1024,
+    'gemini-2.5-flash': 512,
+    'gemini-2.5-flash-lite': 256
+  };
 
   const logoNote = logoPosition
     ? `
@@ -163,13 +173,13 @@ Output the complete corrected CSS.`;
       temperature: 0.1,  // lower temp for corrections — be precise not creative
       maxOutputTokens: 4000,
       topP: 0.9,
-      thinkingConfig: { thinkingBudget: 512 }  // lighter thinking for refinement
+      thinkingConfig: { thinkingBudget: thinkingBudgetByModel[selectedModel] || 512 }
     }
   };
 
   try {
     const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

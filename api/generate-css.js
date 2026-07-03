@@ -388,6 +388,8 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) { return res.status(500).json({ error: 'GEMINI_API_KEY not configured' }); }
 
+  const ALLOWED_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'];
+
   const {
     imageBase64,
     mimeType = 'image/png',
@@ -396,9 +398,18 @@ module.exports = async function handler(req, res) {
     headerElements = {},
     widthPx = null,
     heightPx = null,
-    unitType = 'iab'
+    unitType = 'iab',
+    model = 'gemini-2.5-flash'
   } = req.body || {};
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
+
+  const selectedModel = ALLOWED_MODELS.includes(model) ? model : 'gemini-2.5-flash';
+
+  const thinkingBudgetByModel = {
+    'gemini-2.5-pro': 2048,
+    'gemini-2.5-flash': 1024,
+    'gemini-2.5-flash-lite': 512
+  };
 
   const unitTypeLabel = unitType === 'responsive' ? 'Responsive' : 'IAB Fixed';
   const dimensionNote = widthPx && heightPx
@@ -518,14 +529,14 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       maxOutputTokens: 4000,
       topP: 0.95,
       thinkingConfig: {
-        thinkingBudget: 1024  // deliberate reasoning before writing CSS — mirrors careful visual analysis
+        thinkingBudget: thinkingBudgetByModel[selectedModel] || 1024
       }
     }
   };
 
   try {
     const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
