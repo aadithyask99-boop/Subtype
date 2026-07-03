@@ -277,24 +277,46 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
 
 <!-- SCREENSHOT MODAL -->
 <div class="modal-overlay" id="modal">
-  <div class="modal">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <div class="modal-title">✦ Screenshot → CSS</div>
-      <button id="modal-x" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;transition:color .15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-dim)'">✕</button>
+  <div class="modal" style="width:540px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div class="modal-title" id="modal-title">✦ Screenshot → CSS</div>
+      <button id="modal-x" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;">✕</button>
     </div>
-    <div class="modal-sub">Upload or paste a screenshot of a Dianomi ad unit. MiniMax-M3 will analyse it and generate CSS matching the layout, typography and colours.</div>
-    <div class="drop-zone" id="drop-zone">
-      <input type="file" id="file-input" accept="image/*">
-      <div class="drop-zone-icon">⬆</div>
-      <div>Drop image here or <strong>click to upload</strong></div>
-      <div style="margin-top:4px;font-size:10px;color:var(--text-dim);">Also supports Ctrl+V paste</div>
+
+    <!-- PHASE 1: Upload -->
+    <div id="phase-upload">
+      <div class="modal-sub">Upload a screenshot of a Dianomi ad unit. Gemini will analyse it and generate CSS matching the layout, typography and colours.</div>
+      <div class="drop-zone" id="drop-zone" style="margin-top:12px;">
+        <input type="file" id="file-input" accept="image/*">
+        <div class="drop-zone-icon">⬆</div>
+        <div>Drop image here or <strong>click to upload</strong></div>
+        <div style="margin-top:4px;font-size:10px;color:var(--text-dim);">Also supports Ctrl+V paste</div>
+      </div>
+      <img class="modal-preview" id="modal-preview">
+      <div class="gen-status" id="gen-status"></div>
+      <div class="modal-actions" style="margin-top:12px;">
+        <button class="modal-cancel" id="modal-cancel">Cancel</button>
+        <button class="modal-generate" id="modal-generate" disabled>Generate CSS</button>
+      </div>
     </div>
-    <img class="modal-preview" id="modal-preview">
-    <div class="gen-status" id="gen-status"></div>
-    <div class="modal-actions">
-      <button class="modal-cancel" id="modal-cancel">Cancel</button>
-      <button class="modal-generate" id="modal-generate" disabled>Generate CSS</button>
+
+    <!-- PHASE 2: Refine (shown after first generation) -->
+    <div id="phase-refine" style="display:none;">
+      <div style="display:flex;gap:12px;margin-bottom:12px;">
+        <img id="refine-thumb" style="width:160px;height:100px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--border);">
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:11px;color:var(--text-dim);">CSS generated. Compare the preview with your reference image and describe what needs fixing.</div>
+          <div style="font-size:10px;color:var(--success);" id="refine-round-label">Round 1 complete</div>
+        </div>
+      </div>
+      <textarea id="refine-input" placeholder="e.g. &quot;images should be on the left not top&quot;, &quot;headline font too large&quot;, &quot;gap between cards too wide&quot;, &quot;background should be #f5f5f5&quot;" style="width:100%;height:80px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:12px;font-family:system-ui,sans-serif;padding:8px;border-radius:var(--radius);resize:vertical;outline:none;box-sizing:border-box;"></textarea>
+      <div class="gen-status" id="refine-status" style="margin-top:6px;min-height:16px;"></div>
+      <div class="modal-actions" style="margin-top:10px;">
+        <button class="modal-cancel" id="refine-cancel">Close</button>
+        <button class="modal-generate" id="refine-btn">✦ Refine CSS</button>
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -308,6 +330,7 @@ var cmCSS=null, cmHeader=null, cmHTMLout=null;
 var cmCSSReady=false, cmHeaderReady=false;
 var renderTimer=null, currentBlob=null;
 var pendingImageBase64=null, pendingMimeType='image/png';
+var refineRound=0;
 
 // ─────────────────────────────────────────────
 // IMAGES
@@ -589,7 +612,13 @@ function dlFile(content,filename,type){
 // ─────────────────────────────────────────────
 // SCREENSHOT → CSS
 // ─────────────────────────────────────────────
-function openModal(){document.getElementById('modal').classList.add('show');}
+function openModal(){
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('phase-upload').style.display='block';
+  document.getElementById('phase-refine').style.display='none';
+  document.getElementById('modal-title').textContent='✦ Screenshot → CSS';
+}
+
 function closeModal(){
   document.getElementById('modal').classList.remove('show');
   document.getElementById('modal-preview').style.display='none';
@@ -597,7 +626,26 @@ function closeModal(){
   document.getElementById('modal-generate').disabled=true;
   document.getElementById('gen-status').textContent='';
   document.getElementById('file-input').value='';
+  document.getElementById('refine-input').value='';
+  document.getElementById('refine-status').textContent='';
+  document.getElementById('phase-upload').style.display='block';
+  document.getElementById('phase-refine').style.display='none';
   pendingImageBase64=null;
+  refineRound=0;
+}
+
+function switchToRefinePhase(){
+  refineRound++;
+  document.getElementById('phase-upload').style.display='none';
+  document.getElementById('phase-refine').style.display='block';
+  document.getElementById('modal-title').textContent='✦ Refine CSS';
+  document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — preview updated';
+  // Show thumbnail of reference image
+  var thumb=document.getElementById('refine-thumb');
+  thumb.src='data:'+pendingMimeType+';base64,'+pendingImageBase64;
+  document.getElementById('refine-input').value='';
+  document.getElementById('refine-status').textContent='';
+  document.getElementById('refine-input').focus();
 }
 
 function handleImageFile(file){
@@ -692,9 +740,9 @@ async function generateCSS(){
       }
     }
 
-    status.textContent='✓ CSS generated — preview updated';
+    status.textContent='✓ CSS generated';
     schedRender();
-    setTimeout(function(){closeModal();},1200);
+    setTimeout(function(){ switchToRefinePhase(); }, 600);
 
   }catch(e){
     clearTimeout(timeoutId);
@@ -707,6 +755,93 @@ async function generateCSS(){
   } finally {
     btn.disabled=false;btn.textContent='Generate CSS';
     ssBtn.classList.remove('loading');ssBtn.textContent='✦ Screenshot → CSS';
+  }
+}
+
+// ─────────────────────────────────────────────
+// REFINE CSS — lightweight iterative correction
+// Sends: original screenshot + current CSS + feedback text
+// Does NOT resend skill.md or reference images (saves ~8k tokens)
+// ─────────────────────────────────────────────
+async function refineCSS(){
+  var feedback = document.getElementById('refine-input').value.trim();
+  if(!feedback){ document.getElementById('refine-status').textContent='Please describe what needs fixing.'; return; }
+
+  var btn = document.getElementById('refine-btn');
+  var status = document.getElementById('refine-status');
+  btn.disabled=true; btn.textContent='Refining…';
+  status.textContent='Sending to Gemini…';
+
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function(){ controller.abort(); }, 55000);
+  var startTime = Date.now();
+  var progressTimer = setInterval(function(){
+    var elapsed = Math.round((Date.now()-startTime)/1000);
+    status.textContent = 'Refining' + '.'.repeat((elapsed%3)+1) + ' (' + elapsed + 's)';
+  }, 500);
+
+  try{
+    var resp = await fetch('/api/refine-css', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      signal: controller.signal,
+      body: JSON.stringify({
+        imageBase64: pendingImageBase64,
+        mimeType: pendingMimeType,
+        currentCSS: getCSS(),
+        feedback: feedback,
+        numAds: S.numAds,
+        order: S.order,
+        headerElements: getHeaderToggleState(),
+        round: refineRound
+      })
+    });
+
+    clearTimeout(timeoutId);
+    clearInterval(progressTimer);
+
+    if(!resp.ok){
+      var err = await resp.json();
+      status.textContent = 'Error: '+(err.error||resp.status);
+      btn.disabled=false; btn.textContent='✦ Refine CSS';
+      return;
+    }
+
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var cssBuffer = '';
+    status.textContent = 'Applying corrections…';
+
+    while(true){
+      var chunk = await reader.read();
+      if(chunk.done) break;
+      var text = decoder.decode(chunk.value,{stream:true});
+      var lines = text.split('\n');
+      for(var i=0;i<lines.length;i++){
+        var line = lines[i].trim();
+        if(!line || line==='data: [DONE]') continue;
+        if(line.startsWith('data: ')){
+          try{
+            var json = JSON.parse(line.slice(6));
+            var delta = json.choices&&json.choices[0]&&json.choices[0].delta&&json.choices[0].delta.content;
+            if(delta){ cssBuffer+=delta; setCSS(cssBuffer); }
+          }catch(e){}
+        }
+      }
+    }
+
+    schedRender();
+    refineRound++;
+    document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — preview updated';
+    document.getElementById('refine-input').value='';
+    status.textContent='✓ Done — check the preview and refine again if needed';
+
+  } catch(e){
+    clearTimeout(timeoutId);
+    clearInterval(progressTimer);
+    status.textContent = e.name==='AbortError' ? 'Timed out after 55s' : 'Error: '+e.message;
+  } finally {
+    btn.disabled=false; btn.textContent='✦ Refine CSS';
   }
 }
 
@@ -886,7 +1021,13 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('ss-btn').addEventListener('click',openModal);
   document.getElementById('modal-x').addEventListener('click', closeModal);
   document.getElementById('modal-cancel').addEventListener('click',closeModal);
+  document.getElementById('refine-cancel').addEventListener('click',closeModal);
+  document.getElementById('refine-btn').addEventListener('click',refineCSS);
   document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+  // Allow Enter key in refine input to trigger refine
+  document.getElementById('refine-input').addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){ refineCSS(); }
+  });
 
   var dz=document.getElementById('drop-zone');
   dz.addEventListener('click',function(){document.getElementById('file-input').click();});

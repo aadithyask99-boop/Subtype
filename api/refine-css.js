@@ -1,0 +1,188 @@
+const fs = require('fs');
+const path = require('path');
+
+// Minimal refine prompt — no skill.md, no reference images
+// Just the current CSS, the original screenshot, and the feedback
+const REFINE_SYSTEM = `You are a CSS expert fixing a Dianomi ad unit stylesheet based on user feedback.
+
+You will receive:
+1. The original reference screenshot
+2. The current CSS (which was an attempt to match it)
+3. Specific feedback describing what is wrong
+
+Your job: output a corrected, complete CSS file that fixes the issues described.
+
+STRICT RULES:
+- Output the COMPLETE corrected CSS, not just the changed parts
+- Each selector appears EXACTLY ONCE — no duplicate declarations
+- No CSS comments, no markdown fences, no backticks
+- Keep everything that was already correct, only fix what the feedback describes
+- These rules are always required regardless of feedback:
+  - .text { position: static !important }
+  - .dianomi_provider_short { display: block !important }
+  - span.line2 { display: none }
+  - .heading_top, .dianomiHeading.heading { display: none }
+  - Never use float, display:table, or duplicate selector declarations
+  - For horizontal card grids: .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } and .line2 { width:100%; flex-shrink:0 }
+
+Start directly with the first CSS rule. No preamble.`;
+
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') { return res.status(200).end(); }
+  if (req.method !== 'POST') { return res.status(405).json({ error: 'Method not allowed' }); }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) { return res.status(500).json({ error: 'GEMINI_API_KEY not configured' }); }
+
+  const {
+    imageBase64,
+    mimeType = 'image/png',
+    currentCSS = '',
+    feedback = '',
+    numAds = 1,
+    order = 'provider,text',
+    headerElements = {},
+    round = 1
+  } = req.body || {};
+
+  if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
+  if (!feedback) { return res.status(400).json({ error: 'feedback required' }); }
+
+  const domNote = `Active Header Html elements:
+- Dianomi logo (.sub-line2): ${headerElements.logo ? 'PRESENT' : 'NOT PRESENT'}
+- YAC icon (.dianomi-yac): ${headerElements.yac ? 'PRESENT' : 'NOT PRESENT'}
+- Unit heading (div.line2): ${headerElements.line2 ? `PRESENT — text: "${headerElements.line2Text || 'Sponsored Content'}"` : 'NOT PRESENT'}
+- Action script (.action): ${headerElements.action ? 'PRESENT — fills .action with "Read More"' : 'NOT PRESENT'}`;
+
+  const userMessage = `This is refinement round ${round}.
+
+${domNote}
+
+Num Ads: ${numAds}
+Element Order: ${order}
+
+Here is the reference screenshot that the CSS should match:
+
+[image attached]
+
+Here is the current CSS:
+\`\`\`css
+${currentCSS}
+\`\`\`
+
+USER FEEDBACK — fix exactly these issues:
+${feedback}
+
+Output the complete corrected CSS.`;
+
+  const geminiBody = {
+    contents: [
+      {
+        parts: [
+          { text: REFINE_SYSTEM + '\n\n' + userMessage },
+          { inline_data: { mime_type: mimeType, data: imageBase64 } }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.1,  // lower temp for corrections — be precise not creative
+      maxOutputTokens: 4000,
+      topP: 0.9,
+      thinkingConfig: { thinkingBudget: 512 }  // lighter thinking for refinement
+    }
+  };
+
+  try {
+    const upstream = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiBody)
+      }
+    );
+
+    if (!upstream.ok) {
+      const errText = await upstream.text();
+      let detail;
+      try { detail = JSON.parse(errText); } catch(e) { detail = errText; }
+      return res.status(upstream.status).json({ error: `Gemini API error: ${upstream.status}`, detail });
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    const reader = upstream.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let lastContentAt = Date.now();
+    let firstTokenReceived = false;
+    const FIRST_TOKEN_GRACE = 25000;
+    const IDLE_TIMEOUT = 10000;
+    const MAX_TOTAL = 55000;
+    const startedAt = Date.now();
+
+    while (true) {
+      const sinceContent = Date.now() - lastContentAt;
+      const elapsed = Date.now() - startedAt;
+      const currentTimeout = firstTokenReceived ? IDLE_TIMEOUT : FIRST_TOKEN_GRACE;
+
+      if (elapsed > MAX_TOTAL || sinceContent > currentTimeout) break;
+
+      let done, value;
+      try {
+        const result = await Promise.race([
+          reader.read(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('idle')), Math.min(currentTimeout - sinceContent, MAX_TOTAL - elapsed) + 100))
+        ]);
+        done = result.done;
+        value = result.value;
+      } catch (e) { break; }
+
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(trimmed.slice(6));
+            const part = parsed?.candidates?.[0]?.content?.parts?.[0];
+            const text = part?.text;
+            const isThought = part?.thought === true;
+            const finishReason = parsed?.candidates?.[0]?.finishReason;
+
+            if (text && !isThought) {
+              lastContentAt = Date.now();
+              firstTokenReceived = true;
+              const clean = text.replace(/^```css\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+              res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: clean } }] })}\n\n`);
+            } else if (text && isThought) {
+              lastContentAt = Date.now();
+            }
+
+            if (finishReason && finishReason !== 'OTHER') break;
+          } catch (e) { /* skip */ }
+        }
+      }
+    }
+
+    res.write('data: [DONE]\n\n');
+    return res.end();
+
+  } catch (e) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: e.message });
+    }
+  }
+};
