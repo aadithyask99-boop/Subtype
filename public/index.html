@@ -482,6 +482,41 @@ function stripCssComments(css){
   return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n{3,}/g, '\n\n');
 }
 
+// ─────────────────────────────────────────────
+// DETERMINISTIC LOCAL RESPONSIVE CONVERSION — no AI call, instant, always reliable
+// Handles the structural parts safely (flex-direction flips, hero width %, padding).
+// Deliberately does NOT attempt to auto-scale font-size values — that requires
+// judgement about what looked right in the original design, which regex can't
+// safely infer. Use the Refine box afterward for font/spacing fine-tuning.
+// ─────────────────────────────────────────────
+function convertToResponsiveLocal(css){
+  // Start clean — strip any existing media queries first
+  var stripped = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+  stripped = stripped.replace(/\n{3,}/g, '\n\n').trim();
+
+  var isGrid = /\.wrapper\s*\{[^}]*flex-direction:\s*row/.test(stripped);
+  var isRowCard = /\.dianomihref\s*\{[^}]*flex-direction:\s*row/.test(stripped);
+
+  var rules768 = ['  .wrapper {\n    padding: 14px;\n  }'];
+  var rules480 = ['  .wrapper {\n    padding: 12px;\n  }'];
+
+  if (isGrid) {
+    rules768.push('  .hero {\n    flex: 1 1 calc(50% - 8px);\n  }');
+    rules480.push('  .hero {\n    flex: 1 1 100%;\n  }');
+  }
+
+  if (isRowCard) {
+    rules480.push('  .dianomihref {\n    flex-direction: column;\n  }');
+    rules480.push('  .hero img {\n    width: 100%;\n    height: auto;\n  }');
+  }
+
+  var mediaBlock =
+    '\n\n@media (max-width: 768px) {\n' + rules768.join('\n\n') + '\n}' +
+    '\n\n@media (max-width: 480px) {\n' + rules480.join('\n\n') + '\n}';
+
+  return stripped + mediaBlock;
+}
+
 function convertToIABLocal(css, targetWidthPx){
   var stripped = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
   stripped = stripped.replace(/\n{3,}/g, '\n\n').trim();
@@ -541,7 +576,7 @@ function ensureLine2Styling() {
   var hasRealLine2Style = /(?:^|[^a-zA-Z0-9_.])\.line2\s*\{/.test(css.replace(/span\.line2\s*\{[^}]*\}/g, ''));
   if (hasRealLine2Style) return;
 
-  var defaultLine2 = '\n\n.line2 {\n  font-family: \'Roboto\', sans-serif;\n  font-size: 14px;\n  font-weight: 700;\n  color: #1a1a1a;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 12px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}';
+  var defaultLine2 = '\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 14px;\n  font-weight: 700;\n  color: #1a1a1a;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 12px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}';
 
   css += defaultLine2;
   setCSS(css);
@@ -1088,23 +1123,27 @@ window.addEventListener('DOMContentLoaded',function(){
 
   document.getElementById('unit-type-btns-refine').addEventListener('click',function(e){
     var btn=e.target.closest('[data-unittype]');if(!btn)return;
-    var hasImage = document.getElementById('refine-has-image').style.display !== 'none';
-    var wasChange = S.unitType !== btn.dataset.unittype;
-    var newType = btn.dataset.unittype;
+    var newType=btn.dataset.unittype;
     setUnitTypeUI(newType);
-    if(hasImage && wasChange){
-      if(newType === 'iab'){
-        // Deterministic, instant, no AI call — always reliable
-        var converted = convertToIABLocal(getCSS(), lastGenWidthPx);
-        setCSS(converted);
-        schedRender();
-        document.getElementById('refine-status').textContent = '✓ Converted to IAB Fixed instantly — media queries stripped, wrapper set to max-width:' + lastGenWidthPx + 'px';
-        unitTypeChangedSinceGen = false;
-      } else {
-        // Responsive requires real design judgement (what changes at each breakpoint) — needs AI
-        refineCSS();
-      }
+
+    if(getCSS().trim().length === 0){
+      document.getElementById('refine-status').textContent = 'Generate CSS first before applying a Unit Type preset.';
+      return;
     }
+
+    // Unconditional preset apply — always runs on click, no gating on prior state
+    if(newType === 'iab'){
+      var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
+      setCSS(convertedIAB);
+      schedRender();
+      document.getElementById('refine-status').textContent = '✓ IAB Fixed applied instantly — media queries stripped, max-width:' + (lastGenWidthPx || 970) + 'px set.';
+    } else {
+      var convertedResp = convertToResponsiveLocal(getCSS());
+      setCSS(convertedResp);
+      schedRender();
+      document.getElementById('refine-status').textContent = '✓ Responsive applied instantly — breakpoints added at 768px and 480px. Use Refine below to fine-tune font sizes if needed.';
+    }
+    unitTypeChangedSinceGen = false;
   });
 
   // Dimension preset buttons in upload modal — also sync main preview sliders
