@@ -134,7 +134,7 @@ This HTML is fixed. You cannot add, remove or reorder elements. CSS is the only 
 | `#dianomi_ad_1` | First slot by ID | Can target individually for special treatment. |
 | `.subhero` | Inner wrapper in each hero | Usually `display:block`. |
 | `.dianomihref` | **The real layout container** | `display:flex`. All card layout happens here. |
-| `.hero img` or `.dianomihref img` | Ad image | No hardcoded height/width attrs in HTML. Let CSS control. |
+| `.hero img` or `.hero img` | Ad image | No hardcoded height/width attrs in HTML. Let CSS control. |
 | `.text` | Text block | **Always `position:static !important`**. |
 | `.dianomi_provider_short` | Advertiser/provider name | **Always `display:block !important`** (overrides injected `style="display:inline"`). |
 | `.maintext` | Ad headline | Dynamic content from advertiser. |
@@ -206,7 +206,7 @@ Used for: MarketWatch, large bespoke units, app redesign units
   color: inherit;
 }
 .text { order: 1; position: static !important; }
-.dianomihref img { order: 2; width: 100%; height: auto; margin-top: 12px; object-fit: cover; }
+.hero img { order: 2; width: 100%; height: auto; margin-top: 12px; object-fit: cover; }
 ```
 
 ### Pattern B: Portrait single-ad (image above text)
@@ -214,7 +214,7 @@ Used for: most standard single-image units
 
 ```css
 .dianomihref { display: flex; flex-direction: column; }
-.dianomihref img { order: 1; width: 100%; height: auto; }
+.hero img { order: 1; width: 100%; height: auto; }
 .text { order: 2; padding-top: 12px; position: static !important; }
 ```
 
@@ -228,7 +228,7 @@ Used for: 970×250, 728×90, wide format units
   align-items: center;
   gap: 20px;
 }
-.dianomihref img { flex-shrink: 0; width: 300px; height: 180px; object-fit: cover; }
+.hero img { flex-shrink: 0; width: 300px; height: 180px; object-fit: cover; }
 .text { flex: 1; position: static !important; }
 .action {
   display: inline-block;
@@ -261,7 +261,7 @@ Used for: Telegraph, right-rail 5-image units
   gap: 10px;
   text-decoration: none;
 }
-.dianomihref img { width: 80px; height: 60px; object-fit: cover; flex-shrink: 0; border-radius: 4px; }
+.hero img { width: 80px; height: 60px; object-fit: cover; flex-shrink: 0; border-radius: 4px; }
 .text { flex: 1; min-width: 0; position: static !important; }
 ```
 
@@ -288,7 +288,7 @@ IMPORTANT: `.line2` is a sibling of `.hero` inside `.wrapper`. To make `.line2` 
 .line2 .title { font: inherit; }
 .hero { flex: 1 1 0; min-width: 0; box-sizing: border-box; }
 .dianomihref { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
-.dianomihref img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; margin-bottom: 10px; }
+.hero img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; margin-bottom: 10px; }
 .text { position: static !important; }
 ```
 
@@ -363,7 +363,7 @@ body {
   padding-bottom: 12px;
 }
 
-.dianomihref img {
+.hero img {
   order: 2;
   width: 100%;
   height: auto;
@@ -463,7 +463,7 @@ body {
   text-decoration: none; color: inherit;
 }
 
-.dianomihref img {
+.hero img {
   width: 80px; height: 60px;
   object-fit: cover; flex-shrink: 0;
   display: block; border-radius: 4px;
@@ -500,7 +500,7 @@ span.line2 { display: none; }
 @media (max-width: 400px) {
   .wrapper { padding: 10px 10px 36px 10px; }
   .maintext { font-size: 12px; }
-  .dianomihref img { width: 70px; height: 52px; }
+  .hero img { width: 70px; height: 52px; }
 }
 ```
 
@@ -566,7 +566,7 @@ body {
   color: inherit;
 }
 
-.dianomihref img {
+.hero img {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
@@ -621,7 +621,7 @@ Both `img` and `.text` live inside `a.dianomihref`. Flex `order` must be set at 
 ```css
 .dianomihref { display:flex; flex-direction:column; }
 .dianomihref .text { order:-1; } /* text first */
-.dianomihref img { order:1; }   /* image second */
+.hero img { order:1; }   /* image second */
 ```
 NOT on `.hero` or `.subhero` — those are one level too high.
 
@@ -673,12 +673,106 @@ content: "\2022 ";               /* bullet • */
 
 ## ELEMENT ORDER FIELD
 
-The `Element Order` field in the subtype admin is **server-side** — it changes the actual DOM order of `.dianomi_provider_short` and `.maintext` inside `.text`. You cannot replicate this with CSS `order` alone.
+The `Element Order` field in the subtype admin is **server-side** — it changes the actual DOM order of `.dianomi_provider_short` and `.maintext` inside `.text`.
 
 - `provider,text` (default): `.dianomi_provider_short` comes before `.maintext` in DOM
 - `text,provider`: `.maintext` comes before `.dianomi_provider_short` in DOM
 
-When generating CSS, assume the order shown in the screenshot is correct and don't try to reorder with flex `order` inside `.text`.
+**CORRECTION — CSS `order` CAN override visual order independent of DOM order.** Confirmed from production CNN CSS: if `.text` is a flex container, its children can be reordered visually with `order` regardless of their DOM sequence:
+
+```css
+.text {
+  display: flex;
+  flex-direction: column;
+}
+.text .dianomi_provider_short { order: 1; }
+.text .maintext { order: 2; }
+```
+
+This means you do NOT need to rely on the Element Order admin field at all — CSS alone can control the visual sequence of provider and headline as long as `.text` is flex. Use this freely when the screenshot shows an order that doesn't match the assumed Element Order setting.
+
+---
+
+## ADVANCED TECHNIQUES FROM PRODUCTION
+
+These patterns come from real shipped CNN subtype CSS and are worth using when appropriate.
+
+### Grouping multiple slot IDs with `:is()`
+Cleaner than repeating full selector chains for every ID:
+```css
+/* Instead of: */
+#dianomi_ad_1 .text, #dianomi_ad_2 .text, #dianomi_ad_3 .text { padding-left: 320px; }
+
+/* Use: */
+:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) .text { padding-left: 320px; }
+```
+
+### Individual slot sizing for asymmetric/magazine grids
+Not every `.hero` in a grid needs to be the same size. Override specific slots by ID:
+```css
+.hero { width: 33.33%; }  /* default: 3-column */
+#dianomi_ad_1, #dianomi_ad_2 { width: 50%; }  /* these two are wider: 2-column */
+```
+Use this when a screenshot shows a featured/larger card mixed with smaller ones in the same grid.
+
+### Multi-line headline truncation with ellipsis
+When headline length varies but card height must stay consistent:
+```css
+.maintext {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+```
+Adjust `-webkit-line-clamp` to the number of lines the screenshot shows (usually 2-3).
+
+### Decorative pseudo-elements
+`::before` and `::after` are fully available and encouraged when the screenshot shows decorative marks that aren't real DOM elements — accent bars, custom bullet marks, divider lines:
+```css
+/* Small coloured accent tab before a heading */
+.line2 {
+  position: relative;
+  padding-left: 20px;
+}
+.line2::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 4px;
+  height: 14px;
+  background-color: #cc0100;
+}
+
+/* Full-width divider line after a heading */
+.line2::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: #e6e6e6;
+}
+```
+Also valid: `.dianomi_provider_short::before { content: "Ad by "; }` (already documented) for prefix labels.
+
+### Hover states
+Reasonable polish for clickable cards:
+```css
+.hero img:hover { opacity: 0.85; }
+.maintext:hover { text-decoration: underline; }
+```
+
+### Height cap for feed-embedded units
+When a unit sits inside an infinite-scroll feed and must not grow arbitrarily tall:
+```css
+.wrapper {
+  max-height: 900px;
+  overflow: hidden;
+}
+```
 
 ---
 
@@ -699,6 +793,14 @@ When generating CSS, assume the order shown in the screenshot is correct and don
 
 When given a screenshot, follow this exact sequence:
 
+**STEP 0 — UNDERSTAND THE UNIT CONTEXT**
+
+You will be told the unit's base dimensions (e.g. "970×250") and its type:
+- **IAB Fixed** (300×600, 300×250, 970×250, 728×90 etc): these are standard ad sizes seen mostly on desktop. The unit should behave as a fixed-proportion box — it can shrink naturally as its container narrows, but it should NOT reflow into a different layout. No breakpoint-driven restructuring. Use `max-width:100%` on the wrapper so it never overflows, and let the browser shrink it proportionally. Avoid heavy media queries that change `flex-direction` or hide elements.
+- **Responsive** (below-article, in-article, custom bespoke units): these appear across desktop and mobile and should genuinely reflow — stack vertically on narrow viewports, adjust font sizes, potentially hide non-essential elements at small sizes. Use full breakpoint-driven responsive CSS as shown in the pattern examples.
+
+The dimensions given are context for how to think about proportions (image aspect ratios, font scale relative to container width) — they are not necessarily hardcoded into the CSS as fixed pixel values unless the screenshot clearly shows a fixed-size box.
+
 **STEP 1 — LAYOUT DECISION (do this first, everything else depends on it)**
 
 Count the ad slots visible in the screenshot. Then:
@@ -709,23 +811,45 @@ Count the ad slots visible in the screenshot. Then:
 
 **If the screenshot shows multiple cards SIDE BY SIDE in a row, that is Pattern E regardless of how many cards there are.** Do not default to column layout. Use `flex-direction:row` on `.wrapper`.
 
-**STEP 2 — OBSERVE DETAILS**
-2. Count exact number of ad slots
-3. Note heading label (div.line2) — text, font, border below?
-4. Image treatment — aspect ratio, rounded corners (and how much), position
-5. Typography — font family (serif/sans), sizes, colours, weight
-6. Spacing — wrapper padding, gap between slots, text padding
-7. Attribution logo position — top-right, bottom-right, bottom-centre
+Note: not every `.hero` in a grid must be the same size — if the screenshot shows a featured/larger card among smaller ones, target that specific slot by ID (e.g. `#dianomi_ad_1 { width: 50%; }`) rather than forcing all slots identical.
 
-**STEP 3 — WRITE CSS ONCE, CORRECTLY**
-Plan each selector's full ruleset before writing. Write it once. Do not come back and override it.
+**STEP 2 — OBSERVE DETAILS**
+- Exact number of ad slots
+- Heading label (div.line2) — text, font, border, any decorative accent mark (may need `::before`/`::after`)
+- Image treatment — aspect ratio, rounded corners, position
+- Typography — font family, sizes, colours, weight
+- Spacing — wrapper padding, gap between slots, text padding
+- Attribution logo position — top-right, bottom-right, bottom-centre
+- Does headline length vary but card height must stay fixed? Consider `-webkit-line-clamp`.
+- Visual order of provider/headline — if it doesn't match the assumed Element Order, use flex `order` on `.text` to fix it (see Element Order section above)
+
+**STEP 3 — WRITE CSS ONCE, CORRECTLY, IN THIS EXACT ORDER**
+
+Write selectors in this sequence, with a blank line between each numbered group. Never declare the same selector twice — plan the full ruleset for each one before writing it.
+
+1. `body`
+2. `.wrapper`
+3. Attribution — `.sub-line2`, `.dianomi-wt`, `.dianomi-yac` (only if present per DOM note)
+4. Heading — `.line2`, `.line2 .title`, plus any `::before`/`::after` on `.line2`
+5. Slots — `.hero`, `.hero:not(.last)`, individual ID overrides if asymmetric
+6. Card anchor — `.dianomihref`
+7. Image — `.hero img`
+8. Text block — `.text`
+9. Provider — `.dianomi_provider_short` (+ `::before` if it needs a prefix label)
+10. Headline — `.maintext`
+11. CTA — `.action`
+12. Always-hidden — `.heading_top`, `.dianomiHeading.heading`, `span.line2`
+13. Hover states, if relevant — `.hero img:hover`, `.maintext:hover`
+14. `@media` queries (Responsive mode only — omit entirely for IAB Fixed unless a genuine small-viewport fallback is needed)
 
 **STRICT OUTPUT RULES:**
-- Each selector appears EXACTLY ONCE — no duplicate declarations
+- Each selector appears EXACTLY ONCE — no duplicate declarations, no overriding your own earlier rule later in the file
 - No CSS comments. No markdown. Start with first rule directly.
 - No `float`, no `display:table`, no redundant properties
-- `.wrapper` declared once with the correct `flex-direction` from Step 1
-- `.dianomihref` (not `.subhero a.dianomihref`) — use the short form
+- Use `.hero img` not `.dianomihref img` — simpler and correct since the logo is never inside `.hero`
+- Use `.dianomihref` (short form) not `.subhero a.dianomihref`
+- Use `:is(#dianomi_ad_1, #dianomi_ad_2)` to group multiple ID overrides cleanly instead of repeating full chains
+- Pseudo-elements (`::before`, `::after`) are fully available and encouraged for decorative marks that aren't real DOM elements
 - Aim for 40-60 rules total
 
 Output ONLY valid CSS.

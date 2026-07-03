@@ -12,18 +12,26 @@ You will receive:
 
 Your job: output a corrected, complete CSS file that fixes the issues described.
 
+BEFORE WRITING: List every selector that appears in the current CSS. Your output must preserve every one of them unless the feedback explicitly says to remove something. Do not silently drop selectors (e.g. .line2, .sub-line2) while rewriting — this is the most common mistake to avoid.
+
 STRICT RULES:
 - Output the COMPLETE corrected CSS, not just the changed parts
 - Each selector appears EXACTLY ONCE — no duplicate declarations
 - No CSS comments, no markdown fences, no backticks
 - Keep everything that was already correct, only fix what the feedback describes
+- Write selectors in this order: body, .wrapper, attribution (.sub-line2/.dianomi-wt), heading (.line2), slots (.hero), card anchor (.dianomihref), image (.hero img), text (.text), provider (.dianomi_provider_short), headline (.maintext), CTA (.action), always-hidden elements, media queries
 - These rules are always required regardless of feedback:
   - .text { position: static !important }
   - .dianomi_provider_short { display: block !important }
   - span.line2 { display: none }
   - .heading_top, .dianomiHeading.heading { display: none }
   - Never use float, display:table, or duplicate selector declarations
+  - Use .hero img not .dianomihref img
+  - Use .dianomihref not .subhero a.dianomihref
   - For horizontal card grids: .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } and .line2 { width:100%; flex-shrink:0 }
+  - Visual reorder of provider/headline can be done with flex order on .text if needed — .text { display:flex; flex-direction:column } .text .dianomi_provider_short{order:1} .text .maintext{order:2}
+  - Pseudo-elements (::before, ::after) are fine for decorative marks
+  - Group multiple ID overrides with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains
 
 Start directly with the first CSS rule. No preamble.`;
 
@@ -46,17 +54,26 @@ module.exports = async function handler(req, res) {
     numAds = 1,
     order = 'provider,text',
     headerElements = {},
+    widthPx = null,
+    heightPx = null,
+    unitType = 'iab',
     round = 1
   } = req.body || {};
 
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
   if (!feedback) { return res.status(400).json({ error: 'feedback required' }); }
 
+  const unitTypeLabel = unitType === 'responsive' ? 'Responsive' : 'IAB Fixed';
+  const dimensionNote = widthPx && heightPx
+    ? `Unit: ${widthPx}×${heightPx}px, type: ${unitTypeLabel}. ${unitType === 'iab' ? 'Shrinks proportionally, no layout-changing breakpoints.' : 'Fully responsive, use breakpoints.'}`
+    : '';
+
   const domNote = `Active Header Html elements:
 - Dianomi logo (.sub-line2): ${headerElements.logo ? 'PRESENT' : 'NOT PRESENT'}
 - YAC icon (.dianomi-yac): ${headerElements.yac ? 'PRESENT' : 'NOT PRESENT'}
 - Unit heading (div.line2): ${headerElements.line2 ? `PRESENT — text: "${headerElements.line2Text || 'Sponsored Content'}"` : 'NOT PRESENT'}
-- Action script (.action): ${headerElements.action ? 'PRESENT — fills .action with "Read More"' : 'NOT PRESENT'}`;
+- Action script (.action): ${headerElements.action ? 'PRESENT — fills .action with "Read More"' : 'NOT PRESENT'}
+${dimensionNote}`;
 
   const userMessage = `This is refinement round ${round}.
 

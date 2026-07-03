@@ -210,6 +210,12 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
     <button class="btn" data-prov="20">20</button>
     <button class="btn" data-prov="30">30</button>
   </div>
+  <div class="od"></div>
+  <span class="ol">Unit Type</span>
+  <div class="bg" id="unit-type-btns">
+    <button class="btn active" data-unittype="iab">IAB Fixed</button>
+    <button class="btn" data-unittype="responsive">Responsive</button>
+  </div>
   <div class="or">
     <span class="ol">Order</span>
     <div class="bg">
@@ -327,7 +333,7 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
 // ─────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────
-var S = { numAds:1, widthPct:30, heightPx:600, charLen:30, provLen:15, order:'provider,text' };
+var S = { numAds:1, widthPct:30, heightPx:600, charLen:30, provLen:15, order:'provider,text', unitType:'iab' };
 var MAX_W = 1460;
 var cmCSS=null, cmHeader=null, cmHTMLout=null;
 var cmCSSReady=false, cmHeaderReady=false;
@@ -695,7 +701,10 @@ async function generateCSS(){
         mimeType:pendingMimeType,
         numAds:S.numAds,
         order:S.order,
-        headerElements:getHeaderToggleState()
+        headerElements:getHeaderToggleState(),
+        widthPx: Math.round((S.widthPct/100)*MAX_W),
+        heightPx: S.heightPx,
+        unitType: S.unitType
       })
     });
 
@@ -790,6 +799,9 @@ async function refineCSS(){
         numAds: S.numAds,
         order: S.order,
         headerElements: getHeaderToggleState(),
+        widthPx: Math.round((S.widthPct/100)*MAX_W),
+        heightPx: S.heightPx,
+        unitType: S.unitType,
         round: refineRound
       })
     });
@@ -926,6 +938,13 @@ window.addEventListener('DOMContentLoaded',function(){
     S.provLen=parseInt(btn.dataset.prov,10);
     document.querySelectorAll('#prov-btns .btn').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');schedRender();
+  });
+
+  document.getElementById('unit-type-btns').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-unittype]');if(!btn)return;
+    S.unitType=btn.dataset.unittype;
+    document.querySelectorAll('#unit-type-btns .btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
   });
 
   // UNIFIED PRESET — loads CSS + auto-configures controls + composes matching header via toggles
