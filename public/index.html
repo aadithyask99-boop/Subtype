@@ -321,7 +321,12 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
   <div class="right">
     <div class="pb">
       <span class="pbl">Live Preview</span>
-      <span style="font-size:10px;color:var(--text-dim);margin-left:auto;" id="size-lbl"></span>
+      <button class="btn" id="ref-toggle" style="margin-left:auto;display:none;">🖼 Show Reference</button>
+      <span style="font-size:10px;color:var(--text-dim);margin-left:8px;" id="size-lbl"></span>
+    </div>
+    <div id="ref-panel" style="display:none;background:#0d0f16;padding:12px;border-bottom:1px solid var(--border);text-align:center;">
+      <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Reference Screenshot (what Gemini is matching against)</div>
+      <img id="ref-image" style="max-width:100%;max-height:400px;border-radius:6px;border:1px solid var(--border);object-fit:contain;">
     </div>
     <div class="pc">
       <div class="fw" id="frame-wrap">
@@ -521,7 +526,25 @@ function getLogoPositionState() {
 function rebuildHeaderFromToggles() {
   var opts = getHeaderToggleState();
   setHeader(buildHeaderHtml(opts));
+  if (opts.line2) ensureLine2Styling();
   schedRender();
+}
+
+// Some presets (e.g. landscape-970x250) never included div.line2 styling since they
+// were designed as single-ad units with no heading. If the Line2 toggle is turned on
+// but the current CSS has no real .line2 {} rule (only the unrelated span.line2 hide
+// rule), inject a sensible default so the heading actually renders instead of sitting
+// unstyled and looking like nothing happened.
+function ensureLine2Styling() {
+  var css = getCSS();
+  // Match a genuine div.line2 style block: ".line2 {" not preceded by "span" or ".title"
+  var hasRealLine2Style = /(?:^|[^a-zA-Z0-9_.])\.line2\s*\{/.test(css.replace(/span\.line2\s*\{[^}]*\}/g, ''));
+  if (hasRealLine2Style) return;
+
+  var defaultLine2 = '\n\n.line2 {\n  font-family: \'Roboto\', sans-serif;\n  font-size: 14px;\n  font-weight: 700;\n  color: #1a1a1a;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 12px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}';
+
+  css += defaultLine2;
+  setCSS(css);
 }
 
 // ─────────────────────────────────────────────
@@ -728,6 +751,11 @@ function switchToRefinePhase(){
   hasImg.style.display='flex';
   // Set thumbnail
   document.getElementById('refine-thumb').src='data:'+pendingMimeType+';base64,'+pendingImageBase64;
+  // Populate the prominent reference panel and show it by default
+  document.getElementById('ref-image').src='data:'+pendingMimeType+';base64,'+pendingImageBase64;
+  document.getElementById('ref-toggle').style.display='inline-block';
+  document.getElementById('ref-panel').style.display='block';
+  document.getElementById('ref-toggle').textContent='🖼 Hide Reference';
   document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — check preview';
   document.getElementById('refine-badge').textContent='Round '+refineRound+' complete';
   document.getElementById('refine-input').value='';
@@ -1231,6 +1259,12 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('modal-x').addEventListener('click', closeModal);
   document.getElementById('modal-cancel').addEventListener('click',closeModal);
   document.getElementById('refine-btn').addEventListener('click',refineCSS);
+  document.getElementById('ref-toggle').addEventListener('click',function(){
+    var panel = document.getElementById('ref-panel');
+    var isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? 'block' : 'none';
+    this.textContent = isHidden ? '🖼 Hide Reference' : '🖼 Show Reference';
+  });
   document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
   // Allow Enter key in refine input to trigger refine
   document.getElementById('refine-input').addEventListener('keydown',function(e){
