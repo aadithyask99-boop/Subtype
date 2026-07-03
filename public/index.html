@@ -166,17 +166,32 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
     <option value="">— load preset —</option>
     <option value="flex-baseline">Flex baseline (default)</option>
     <option value="list-300x600">5-image 300×600 right rail</option>
+    <option value="landscape-970x250">Landscape 970×250</option>
   </select>
   <div class="pdiv"></div>
   <span class="pl">Header Html</span>
-  <select class="psel" id="header-preset">
-    <option value="">— select —</option>
-    <option value="logo-only">Single ad — logo only</option>
-    <option value="logo-action">Single ad — logo + Read More</option>
-    <option value="list-yac">List — logo + YAC + line2</option>
+  <label class="toggle-chip"><input type="checkbox" id="tg-logo" checked><span>Logo</span></label>
+  <label class="toggle-chip"><input type="checkbox" id="tg-yac"><span>YAC</span></label>
+  <label class="toggle-chip"><input type="checkbox" id="tg-line2"><span>Line2</span></label>
+  <input type="text" id="line2-text" class="mini-input" placeholder="Sponsored Content" style="display:none;">
+  <label class="toggle-chip"><input type="checkbox" id="tg-action"><span>Read More</span></label>
+  <select class="psel mini-sel" id="logo-pos">
+    <option value="bottom-right">Logo: bottom-right</option>
+    <option value="top-right">Logo: top-right</option>
+    <option value="bottom-center">Logo: bottom-center</option>
   </select>
   <button class="ss-btn" id="ss-btn">✦ Screenshot → CSS</button>
 </div>
+
+<style>
+.toggle-chip{display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:11px;color:var(--text-dim);user-select:none;transition:all .15s;}
+.toggle-chip:hover{border-color:var(--accent);}
+.toggle-chip input{margin:0;cursor:pointer;}
+.toggle-chip:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff;}
+.mini-input{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:11px;padding:3px 8px;border-radius:var(--radius);outline:none;width:130px;}
+.mini-input:focus{border-color:var(--accent);}
+.mini-sel{font-size:10px;padding:3px 6px;}
+</style>
 
 <!-- OPTS BAR -->
 <div class="optbar">
@@ -328,11 +343,69 @@ function trunc(str, len) {
 // ─────────────────────────────────────────────
 // HEADER HTML PRESETS
 // ─────────────────────────────────────────────
-var HP = {
-  'logo-only': '<div class="sub-line2" style="width: auto;">\n  <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n    <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="11" width="55" alt="Dianomi Logo">\n  </a>\n</div>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">',
-  'logo-action': '<div class="sub-line2" style="width: auto;">\n  <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n    <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="11" width="55" alt="Dianomi Logo">\n  </a>\n</div>\n<script>\nfunction docReadyState(fn){\n  if(document.readyState==="complete"||document.readyState==="interactive"){setTimeout(fn,1);}\n  else{document.addEventListener("DOMContentLoaded",fn);}\n}\ndocReadyState(function(){\n  var a=document.getElementsByClassName("action");\n  for(var i=0;i<a.length;i++){if(a[i].innerHTML==="")a[i].innerHTML="Read More";}\n});\n<\/script>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">',
-  'list-yac': '<div class="dianomi-wt">\n  <div class="sub-line2" style="width:auto;min-height:14px;">\n    <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n      <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="10" width="53" alt="Dianomi Logo">\n    </a>\n    <div class="dianomi-yac" style="display:inline;padding-left:4px;">\n      <a href="https://www.dianomi.com/legal/privacy.epl" target="_blank">\n        <img src="https://www.dianomi.com/img/YAC_Icon.png" alt="Your Ad Choices" style="height:12px;display:inline;">\n      </a>\n    </div>\n  </div>\n</div>\n<div class="line2"><span class="title">SPONSORED CONTENT</span></div>\n<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">'
-};
+// ─────────────────────────────────────────────
+// HEADER HTML COMPOSER — mix and match building blocks
+// ─────────────────────────────────────────────
+var FONT_LINKS = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">';
+
+var ACTION_SCRIPT = '<script>\nfunction docReadyState(fn){\n  if(document.readyState==="complete"||document.readyState==="interactive"){setTimeout(fn,1);}\n  else{document.addEventListener("DOMContentLoaded",fn);}\n}\ndocReadyState(function(){\n  var a=document.getElementsByClassName("action");\n  for(var i=0;i<a.length;i++){if(a[i].innerHTML==="")a[i].innerHTML="Read More";}\n});\n<\/script>';
+
+function buildHeaderHtml(opts) {
+  var parts = [];
+
+  if (opts.yac) {
+    // Logo + YAC wrapped together in .dianomi-wt (list-unit pattern)
+    parts.push(
+      '<div class="dianomi-wt">\n  <div class="sub-line2" style="width:auto;min-height:14px;">\n' +
+      '    <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n' +
+      '      <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="10" width="53" alt="Dianomi Logo">\n' +
+      '    </a>\n' +
+      '    <div class="dianomi-yac" style="display:inline;padding-left:4px;">\n' +
+      '      <a href="https://www.dianomi.com/legal/privacy.epl" target="_blank">\n' +
+      '        <img src="https://www.dianomi.com/img/YAC_Icon.png" alt="Your Ad Choices" style="height:12px;display:inline;">\n' +
+      '      </a>\n' +
+      '    </div>\n' +
+      '  </div>\n</div>'
+    );
+  } else if (opts.logo) {
+    // Logo alone (single-ad pattern)
+    parts.push(
+      '<div class="sub-line2" style="width: auto;">\n' +
+      '  <a href="https://www.dianomi.com/whatsthis.pl?id=1" target="_blank" title="dianomi">\n' +
+      '    <img class="dianomi-lg" src="https://www.dianomi.com/img/dianomi-max-200x38.png" height="11" width="55" alt="Dianomi Logo">\n' +
+      '  </a>\n</div>'
+    );
+  }
+
+  if (opts.line2) {
+    var labelText = opts.line2Text || 'Sponsored Content';
+    parts.push('<div class="line2"><span class="title">' + labelText + '</span></div>');
+  }
+
+  if (opts.action) {
+    parts.push(ACTION_SCRIPT);
+  }
+
+  parts.push(FONT_LINKS);
+
+  return parts.join('\n');
+}
+
+function getHeaderToggleState() {
+  return {
+    logo: document.getElementById('tg-logo').checked,
+    yac: document.getElementById('tg-yac').checked,
+    line2: document.getElementById('tg-line2').checked,
+    line2Text: document.getElementById('line2-text').value || 'Sponsored Content',
+    action: document.getElementById('tg-action').checked
+  };
+}
+
+function rebuildHeaderFromToggles() {
+  var opts = getHeaderToggleState();
+  setHeader(buildHeaderHtml(opts));
+  schedRender();
+}
 
 // ─────────────────────────────────────────────
 // CSS PRESETS
@@ -341,6 +414,9 @@ var CP = {};
 CP['flex-baseline'] = 'body {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Roboto\', sans-serif;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff; padding: 16px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.sub-line2 { position: absolute; bottom: 16px; right: 16px; z-index: 1; }\n.sub-line2 img { width: 55px; height: auto; display: block; }\n\n.dianomi-wt { margin-bottom: 8px; }\n\n.line2 {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; color: #888;\n  text-transform: uppercase; letter-spacing: 0.5px;\n  margin-bottom: 10px; display: block;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #e8e8e8;\n  padding-bottom: 16px; margin-bottom: 16px;\n}\n\n.subhero a.dianomihref {\n  display: flex; flex-direction: column;\n  text-decoration: none; color: inherit;\n}\n\n.subhero a.dianomihref img {\n  width: 100%; height: auto; display: block;\n  object-fit: cover; order: 2; margin-top: 12px;\n}\n\n.text {\n  order: 1; display: flex; flex-direction: column;\n  position: static !important; box-sizing: border-box; width: 100%;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.dianomi_provider_short {\n  font-family: \'Roboto\', sans-serif; font-size: 10px; font-weight: 700;\n  color: #888; text-transform: uppercase; letter-spacing: 0.5px;\n  display: block !important; margin-bottom: 6px;\n}\n\n.maintext {\n  font-family: \'Merriweather\', serif; font-size: 20px; font-weight: 700;\n  line-height: 1.25; color: #111; display: block; margin: 0;\n}\n\n.action { display: none; }\n\n.subhero a.dianomihref:hover .maintext { opacity: 0.75; }\n\n@media (max-width: 780px) {\n  .wrapper { padding: 12px; }\n  .sub-line2 { bottom: 12px; right: 12px; }\n  .hero:not(.last) { padding-bottom: 12px; margin-bottom: 12px; }\n  .maintext { font-size: 17px; }\n}';
 
 CP['list-300x600'] = '/* ================================================\n   5-IMAGE 300x600 RIGHT RAIL\n   Header Html: List — logo + YAC + line2\n   Num Ads: 5  |  Element Order: text, provider\n   ================================================ */\n\nbody {\n  margin: 0; padding: 0; width: 100%;\n  height: auto; overflow: visible;\n  box-sizing: border-box;\n  font-family: \'Inter\', sans-serif;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%; height: auto; overflow: visible;\n  background-color: #fff;\n  padding: 12px 14px 40px 14px;\n  box-sizing: border-box; display: flex;\n  flex-direction: column; position: relative;\n}\n\n.dianomi-wt {\n  display: flex; align-items: center; margin-bottom: 10px;\n}\n\n.sub-line2 {\n  position: absolute; bottom: 12px; right: 14px;\n  z-index: 1; display: flex; align-items: center; gap: 4px;\n}\n.sub-line2 img.dianomi-lg { width: 53px; height: auto; display: inline; }\n.dianomi-yac img { height: 12px; width: auto; display: inline; }\n\n.line2 {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 600; color: #999;\n  text-transform: uppercase; letter-spacing: 0.8px;\n  margin-bottom: 12px; display: block;\n  border-bottom: 1px solid #ebebeb; padding-bottom: 10px;\n}\n.line2 .title { font: inherit; }\n\n.hero { width: 100%; box-sizing: border-box; padding: 0; }\n\n.hero:not(.last) {\n  border-bottom: 1px solid #ebebeb;\n  padding-bottom: 12px; margin-bottom: 12px;\n}\n\n.subhero a.dianomihref {\n  display: flex; flex-direction: row;\n  align-items: flex-start; gap: 10px;\n  text-decoration: none; color: inherit;\n}\n\n.subhero a.dianomihref img {\n  width: 80px; height: 60px;\n  object-fit: cover; flex-shrink: 0;\n  display: block; border-radius: 4px;\n}\n\n.text {\n  flex: 1; display: flex; flex-direction: column;\n  justify-content: center;\n  position: static !important;\n  box-sizing: border-box; min-width: 0;\n}\n\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n\n.maintext {\n  font-family: \'Inter\', sans-serif;\n  font-size: 13px; font-weight: 600;\n  line-height: 1.35; color: #1a1a1a;\n  display: block; margin: 0 0 4px 0;\n}\n\n.dianomi_provider_short {\n  font-family: \'Inter\', sans-serif;\n  font-size: 10px; font-weight: 400; color: #999;\n  display: block !important;\n  text-transform: none; letter-spacing: 0;\n}\n\n.action { display: none; }\n\n.subhero a.dianomihref:hover .maintext { color: #0050d0; }\n\n@media (max-width: 400px) {\n  .wrapper { padding: 10px 10px 36px 10px; }\n  .maintext { font-size: 12px; }\n  .subhero a.dianomihref img { width: 70px; height: 52px; }\n}';
+
+CP['landscape-970x250'] = 'body { margin: 0; padding: 0; width: 100%; height: auto; overflow: visible; box-sizing: border-box; font-family: \'Roboto\', sans-serif; }\n.wrapper { width: 100%; height: auto; overflow: visible; background-color: #fff; padding: 0; box-sizing: border-box; display: flex; flex-direction: column; position: relative; }\n.hero { width: 100%; box-sizing: border-box; }\n.subhero a.dianomihref { display: flex; flex-direction: row; align-items: center; gap: 24px; text-decoration: none; color: inherit; }\n.subhero a.dianomihref img { flex-shrink: 0; width: 400px; height: 250px; object-fit: cover; display: block; }\n.text { flex: 1; display: flex; flex-direction: column; justify-content: center; position: static !important; padding: 24px 24px 24px 0; }\n.heading_top, .dianomiHeading.heading { display: none; }\nspan.line2 { display: none; }\n.maintext { font-family: \'Roboto\', sans-serif; font-size: 28px; font-weight: 700; color: #1a1a1a; line-height: 1.25; display: block; margin: 0 0 8px 0; }\n.dianomi_provider_short { font-family: \'Roboto\', sans-serif; font-size: 15px; font-weight: 400; color: #444; display: block !important; margin-bottom: 16px; text-transform: none; letter-spacing: 0; }\n.action { display: inline-block; width: fit-content; padding: 12px 28px; background: #000; color: #fff; font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }\n@media (max-width: 780px) {\n  .subhero a.dianomihref { flex-direction: column; align-items: flex-start; gap: 12px; }\n  .subhero a.dianomihref img { width: 100%; height: auto; aspect-ratio: 16/10; }\n  .text { padding: 0 16px 16px 16px; }\n  .maintext { font-size: 20px; }\n}\n';
+
 
 // ─────────────────────────────────────────────
 // HTML BUILDER
@@ -573,7 +649,8 @@ async function generateCSS(){
         imageBase64:pendingImageBase64,
         mimeType:pendingMimeType,
         numAds:S.numAds,
-        order:S.order
+        order:S.order,
+        headerElements:getHeaderToggleState()
       })
     });
 
@@ -639,7 +716,7 @@ async function generateCSS(){
 window.addEventListener('DOMContentLoaded',function(){
 
   document.getElementById('ta-css').value=CP['flex-baseline'];
-  document.getElementById('ta-header').value=HP['logo-only'];
+  document.getElementById('ta-header').value=buildHeaderHtml({logo:true,yac:false,line2:false,action:false});
   updateWidth(30);updateHeight(600);
 
   // CSS CM
@@ -669,7 +746,7 @@ window.addEventListener('DOMContentLoaded',function(){
   }catch(e){
     var tfb=document.createElement('textarea');
     tfb.className='fb';tfb.id='ta-header';tfb.spellcheck=false;
-    tfb.value=HP['logo-only'];tfb.addEventListener('input',schedRender);
+    tfb.value=buildHeaderHtml({logo:true,yac:false,line2:false,action:false});tfb.addEventListener('input',schedRender);
     document.getElementById('cm-header-wrap').appendChild(tfb);
   }
 
@@ -719,26 +796,82 @@ window.addEventListener('DOMContentLoaded',function(){
     btn.classList.add('active');schedRender();
   });
 
-  // UNIFIED PRESET — loads CSS + auto-configures controls + loads matching header
+  // UNIFIED PRESET — loads CSS + auto-configures controls + composes matching header via toggles
   document.getElementById('unit-preset').addEventListener('change',function(){
     var key=this.value;if(!key||!CP[key]){this.value='';return;}
     setCSS(CP[key]);
+
     if(key==='list-300x600'){
       S.numAds=5;document.getElementById('num-display').textContent=5;
       S.order='text,provider';setOrderUI(S.order);
-      setHeader(HP['list-yac']);
+      document.getElementById('tg-logo').checked=true;
+      document.getElementById('tg-yac').checked=true;
+      document.getElementById('tg-line2').checked=true;
+      document.getElementById('line2-text').value='Sponsored Content';
+      document.getElementById('line2-text').style.display='inline-block';
+      document.getElementById('tg-action').checked=false;
+      document.getElementById('logo-pos').value='bottom-right';
+      rebuildHeaderFromToggles();
       S.heightPx=600;document.getElementById('h-slider').value=600;updateHeight(600);
       setBP(300);
+    } else if(key==='landscape-970x250'){
+      S.numAds=1;document.getElementById('num-display').textContent=1;
+      S.order='provider,text';setOrderUI(S.order);
+      document.getElementById('tg-logo').checked=true;
+      document.getElementById('tg-yac').checked=false;
+      document.getElementById('tg-line2').checked=false;
+      document.getElementById('line2-text').style.display='none';
+      document.getElementById('tg-action').checked=true;
+      document.getElementById('logo-pos').value='bottom-right';
+      rebuildHeaderFromToggles();
+      S.heightPx=250;document.getElementById('h-slider').value=250;updateHeight(250);
+      setBP(970);
     } else {
-      setHeader(HP['logo-only']);
+      document.getElementById('tg-logo').checked=true;
+      document.getElementById('tg-yac').checked=false;
+      document.getElementById('tg-line2').checked=false;
+      document.getElementById('line2-text').style.display='none';
+      document.getElementById('tg-action').checked=false;
+      document.getElementById('logo-pos').value='bottom-right';
+      rebuildHeaderFromToggles();
     }
     this.value='';schedRender();
   });
 
-  document.getElementById('header-preset').addEventListener('change',function(){
-    var key=this.value;if(!key||!HP[key]){this.value='';return;}
-    setHeader(HP[key]);this.value='';schedRender();
+  // Toggle chip listeners — mix and match Header Html composition
+  ['tg-logo','tg-yac','tg-line2','tg-action'].forEach(function(id){
+    document.getElementById(id).addEventListener('change',function(){
+      document.getElementById('line2-text').style.display =
+        document.getElementById('tg-line2').checked ? 'inline-block' : 'none';
+      rebuildHeaderFromToggles();
+    });
   });
+  document.getElementById('line2-text').addEventListener('input',rebuildHeaderFromToggles);
+
+  // Logo position — updates sub-line2 positioning directly in the CSS editor via a comment-marked block
+  document.getElementById('logo-pos').addEventListener('change',function(){
+    applyLogoPosition(this.value);
+  });
+
+  function applyLogoPosition(pos){
+    var css = getCSS();
+    var rules = {
+      'bottom-right': 'position: absolute;\n  bottom: 16px;\n  right: 16px;',
+      'top-right':    'position: absolute;\n  top: 16px;\n  right: 16px;',
+      'bottom-center':'position: absolute;\n  bottom: 16px;\n  left: 50%;\n  transform: translateX(-50%);'
+    };
+    var block = rules[pos] || rules['bottom-right'];
+    // Replace existing .sub-line2 position block if present, else append
+    var subLineRegex = /\.sub-line2\s*{[^}]*}/;
+    var newRule = '.sub-line2 {\n  ' + block + '\n  z-index: 1;\n}';
+    if (subLineRegex.test(css)) {
+      css = css.replace(subLineRegex, newRule);
+    } else {
+      css += '\n\n' + newRule;
+    }
+    setCSS(css);
+    schedRender();
+  }
 
   document.getElementById('hd-header').addEventListener('click',function(){toggleSec('header');});
   document.getElementById('hd-css').addEventListener('click',function(){toggleSec('css');});
