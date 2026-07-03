@@ -15,6 +15,7 @@ Your job: output a corrected, complete CSS file that fixes the issues described.
 BEFORE WRITING: List every selector that appears in the current CSS. Your output must preserve every one of them unless the feedback explicitly says to remove something. Do not silently drop selectors (e.g. .line2, .sub-line2) while rewriting — this is the most common mistake to avoid.
 
 STRICT RULES:
+- FORMATTING: every rule spans multiple lines. Selector, opening brace, one property per line indented 2 spaces, closing brace alone, blank line, next rule. NEVER compress a rule onto one line.
 - Output the COMPLETE corrected CSS, not just the changed parts
 - Each selector appears EXACTLY ONCE — no duplicate declarations
 - No CSS comments, no markdown fences, no backticks

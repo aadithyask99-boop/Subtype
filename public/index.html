@@ -176,9 +176,21 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
   <input type="text" id="line2-text" class="mini-input" placeholder="Sponsored Content" style="display:none;">
   <label class="toggle-chip"><input type="checkbox" id="tg-action"><span>Read More</span></label>
   <select class="psel mini-sel" id="logo-pos">
-    <option value="bottom-right">Logo: bottom-right</option>
+    <option value="top-left">Logo: top-left</option>
+    <option value="top-center">Logo: top-center</option>
     <option value="top-right">Logo: top-right</option>
+    <option value="bottom-left">Logo: bottom-left</option>
     <option value="bottom-center">Logo: bottom-center</option>
+    <option value="bottom-right" selected>Logo: bottom-right</option>
+  </select>
+  <label class="toggle-chip"><input type="checkbox" id="tg-logo-mobile"><span>Diff. on mobile</span></label>
+  <select class="psel mini-sel" id="logo-pos-mobile" style="display:none;">
+    <option value="top-left">Mobile: top-left</option>
+    <option value="top-center">Mobile: top-center</option>
+    <option value="top-right">Mobile: top-right</option>
+    <option value="bottom-left">Mobile: bottom-left</option>
+    <option value="bottom-center" selected>Mobile: bottom-center</option>
+    <option value="bottom-right">Mobile: bottom-right</option>
   </select>
   <button class="ss-btn" id="ss-btn">✦ Screenshot → CSS</button>
 </div>
@@ -282,6 +294,14 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
               <img id="refine-thumb" style="width:120px;height:75px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--border);">
               <div style="flex:1;font-size:10px;color:var(--text-dim);line-height:1.5;">Compare preview with reference. Describe what needs fixing and hit Refine.<br><span style="color:var(--success);" id="refine-round-label"></span></div>
             </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
+              <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;">Unit Type</span>
+              <div class="bg" id="unit-type-btns-refine">
+                <button class="btn" data-unittype="iab">IAB Fixed</button>
+                <button class="btn" data-unittype="responsive">Responsive</button>
+              </div>
+              <span style="font-size:9px;color:var(--text-dim);margin-left:auto;">Change + Refine to convert</span>
+            </div>
             <textarea id="refine-input" placeholder='e.g. "cards should be horizontal not vertical", "font too large", "image needs rounded corners 8px", "gap between cards too wide"' style="width:100%;height:70px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:11px;font-family:system-ui,sans-serif;padding:7px;border-radius:var(--radius);resize:vertical;outline:none;box-sizing:border-box;"></textarea>
             <div style="font-size:10px;color:var(--text-dim);">Cmd+Enter to refine</div>
             <div style="font-size:10px;color:var(--success);min-height:14px;" id="refine-status"></div>
@@ -314,6 +334,24 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
       <button id="modal-x" style="background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1;padding:0 4px;">✕</button>
     </div>
     <div class="modal-sub">Upload a screenshot of a Dianomi ad unit. Gemini will analyse it and generate CSS matching the layout, typography and colours.</div>
+
+    <div style="margin-top:12px;padding:10px;background:var(--surface2);border-radius:6px;">
+      <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:6px;">Starting dimensions (tells Gemini the unit's intended size)</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <input type="number" id="dim-width" placeholder="Width" value="970" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 7px;border-radius:4px;outline:none;">
+        <span style="color:var(--text-dim);font-size:12px;">×</span>
+        <input type="number" id="dim-height" placeholder="Height" value="250" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 7px;border-radius:4px;outline:none;">
+        <span style="color:var(--text-dim);font-size:11px;margin-left:4px;">px</span>
+      </div>
+      <div class="bg" id="dim-presets" style="flex-wrap:wrap;gap:4px;">
+        <button class="btn" data-w="970" data-h="250">970×250</button>
+        <button class="btn" data-w="300" data-h="600">300×600</button>
+        <button class="btn" data-w="300" data-h="250">300×250</button>
+        <button class="btn" data-w="728" data-h="90">728×90</button>
+        <button class="btn" data-w="160" data-h="600">160×600</button>
+      </div>
+    </div>
+
     <div class="drop-zone" id="drop-zone" style="margin-top:12px;">
       <input type="file" id="file-input" accept="image/*">
       <div class="drop-zone-icon">⬆</div>
@@ -340,6 +378,7 @@ var cmCSSReady=false, cmHeaderReady=false;
 var renderTimer=null, currentBlob=null;
 var pendingImageBase64=null, pendingMimeType='image/png';
 var refineRound=0;
+var lastGenWidthPx=970, lastGenHeightPx=250;
 
 // ─────────────────────────────────────────────
 // IMAGES
@@ -702,8 +741,8 @@ async function generateCSS(){
         numAds:S.numAds,
         order:S.order,
         headerElements:getHeaderToggleState(),
-        widthPx: Math.round((S.widthPct/100)*MAX_W),
-        heightPx: S.heightPx,
+        widthPx: parseInt(document.getElementById('dim-width').value,10) || Math.round((S.widthPct/100)*MAX_W),
+        heightPx: parseInt(document.getElementById('dim-height').value,10) || S.heightPx,
         unitType: S.unitType
       })
     });
@@ -746,6 +785,8 @@ async function generateCSS(){
       }
     }
 
+    lastGenWidthPx = parseInt(document.getElementById('dim-width').value,10) || 970;
+    lastGenHeightPx = parseInt(document.getElementById('dim-height').value,10) || 250;
     status.textContent='✓ CSS generated';
     schedRender();
     setTimeout(function(){ switchToRefinePhase(); }, 600);
@@ -799,8 +840,8 @@ async function refineCSS(){
         numAds: S.numAds,
         order: S.order,
         headerElements: getHeaderToggleState(),
-        widthPx: Math.round((S.widthPct/100)*MAX_W),
-        heightPx: S.heightPx,
+        widthPx: lastGenWidthPx,
+        heightPx: lastGenHeightPx,
         unitType: S.unitType,
         round: refineRound
       })
@@ -940,12 +981,34 @@ window.addEventListener('DOMContentLoaded',function(){
     btn.classList.add('active');schedRender();
   });
 
+  function setUnitTypeUI(type){
+    S.unitType = type;
+    document.querySelectorAll('#unit-type-btns .btn, #unit-type-btns-refine .btn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.unittype === type);
+    });
+  }
+
   document.getElementById('unit-type-btns').addEventListener('click',function(e){
     var btn=e.target.closest('[data-unittype]');if(!btn)return;
-    S.unitType=btn.dataset.unittype;
-    document.querySelectorAll('#unit-type-btns .btn').forEach(function(b){b.classList.remove('active');});
+    setUnitTypeUI(btn.dataset.unittype);
+  });
+
+  document.getElementById('unit-type-btns-refine').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-unittype]');if(!btn)return;
+    setUnitTypeUI(btn.dataset.unittype);
+  });
+
+  // Dimension preset buttons in upload modal
+  document.getElementById('dim-presets').addEventListener('click',function(e){
+    var btn=e.target.closest('[data-w]');if(!btn)return;
+    document.getElementById('dim-width').value = btn.dataset.w;
+    document.getElementById('dim-height').value = btn.dataset.h;
+    document.querySelectorAll('#dim-presets .btn').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');
   });
+
+  // Default to IAB active on load
+  setUnitTypeUI('iab');
 
   // UNIFIED PRESET — loads CSS + auto-configures controls + composes matching header via toggles
   document.getElementById('unit-preset').addEventListener('change',function(){
@@ -999,27 +1062,48 @@ window.addEventListener('DOMContentLoaded',function(){
   });
   document.getElementById('line2-text').addEventListener('input',rebuildHeaderFromToggles);
 
-  // Logo position — updates sub-line2 positioning directly in the CSS editor via a comment-marked block
-  document.getElementById('logo-pos').addEventListener('change',function(){
-    applyLogoPosition(this.value);
+  // Logo position — full 6-position grid + optional mobile override
+  var LOGO_POS_RULES = {
+    'top-left':      'position: absolute;\n  top: 16px;\n  left: 16px;',
+    'top-center':    'position: absolute;\n  top: 16px;\n  left: 50%;\n  transform: translateX(-50%);',
+    'top-right':     'position: absolute;\n  top: 16px;\n  right: 16px;',
+    'bottom-left':   'position: absolute;\n  bottom: 16px;\n  left: 16px;',
+    'bottom-center': 'position: absolute;\n  bottom: 16px;\n  left: 50%;\n  transform: translateX(-50%);',
+    'bottom-right':  'position: absolute;\n  bottom: 16px;\n  right: 16px;'
+  };
+
+  document.getElementById('logo-pos').addEventListener('change',applyLogoPosition);
+  document.getElementById('logo-pos-mobile').addEventListener('change',applyLogoPosition);
+  document.getElementById('tg-logo-mobile').addEventListener('change',function(){
+    document.getElementById('logo-pos-mobile').style.display = this.checked ? 'inline-block' : 'none';
+    applyLogoPosition();
   });
 
-  function applyLogoPosition(pos){
+  function applyLogoPosition(){
+    var pos = document.getElementById('logo-pos').value;
+    var useMobile = document.getElementById('tg-logo-mobile').checked;
+    var mobilePos = document.getElementById('logo-pos-mobile').value;
+
     var css = getCSS();
-    var rules = {
-      'bottom-right': 'position: absolute;\n  bottom: 16px;\n  right: 16px;',
-      'top-right':    'position: absolute;\n  top: 16px;\n  right: 16px;',
-      'bottom-center':'position: absolute;\n  bottom: 16px;\n  left: 50%;\n  transform: translateX(-50%);'
-    };
-    var block = rules[pos] || rules['bottom-right'];
-    // Replace existing .sub-line2 position block if present, else append
-    var subLineRegex = /\.sub-line2\s*{[^}]*}/;
-    var newRule = '.sub-line2 {\n  ' + block + '\n  z-index: 1;\n}';
+    var desktopBlock = LOGO_POS_RULES[pos] || LOGO_POS_RULES['bottom-right'];
+    var newRule = '.sub-line2 {\n  ' + desktopBlock + '\n  z-index: 1;\n}';
+
+    // Replace existing .sub-line2 base rule (not inside a media query)
+    var subLineRegex = /\.sub-line2\s*\{[^}]*\}/;
     if (subLineRegex.test(css)) {
       css = css.replace(subLineRegex, newRule);
     } else {
       css += '\n\n' + newRule;
     }
+
+    // Remove any previous auto-generated mobile override block
+    css = css.replace(/\n*\/\* AUTO:sub-line2-mobile \*\/[\s\S]*?\n\}\n\}/, '');
+
+    if (useMobile) {
+      var mobileBlock = LOGO_POS_RULES[mobilePos] || LOGO_POS_RULES['bottom-center'];
+      css += '\n\n/* AUTO:sub-line2-mobile */\n@media (max-width: 480px) {\n  .sub-line2 {\n    ' + mobileBlock.replace(/\n/g,'\n  ') + '\n  }\n}';
+    }
+
     setCSS(css);
     schedRender();
   }

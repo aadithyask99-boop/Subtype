@@ -880,6 +880,7 @@ Write selectors in this sequence, with a blank line between each numbered group.
 14. `@media` queries (Responsive mode only — omit entirely for IAB Fixed unless a genuine small-viewport fallback is needed)
 
 **STRICT OUTPUT RULES:**
+- **FORMATTING: every rule MUST span multiple lines.** Selector, then `{`, then ONE property per line indented 2 spaces, then `}` on its own line, then a blank line before the next rule. NEVER write `.selector { prop: val; prop: val; }` all on one line. This is not optional — match the multi-line format shown in every example above exactly.
 - Each selector appears EXACTLY ONCE — no duplicate declarations, no overriding your own earlier rule later in the file
 - No CSS comments. No markdown. Start with first rule directly.
 - No `float`, no `display:table`, no redundant properties
