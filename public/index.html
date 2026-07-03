@@ -466,6 +466,12 @@ function buildHeaderHtml(opts) {
 // DETERMINISTIC LOCAL IAB CONVERSION — no AI call, instant, always reliable
 // Strips media queries, ensures wrapper has proportional max-width
 // ─────────────────────────────────────────────
+// Deterministic safety net — Gemini is told never to add CSS comments but doesn't
+// always comply. Strip any /* ... */ blocks regardless of what it outputs.
+function stripCssComments(css){
+  return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\n{3,}/g, '\n\n');
+}
+
 function convertToIABLocal(css, targetWidthPx){
   var stripped = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
   stripped = stripped.replace(/\n{3,}/g, '\n\n').trim();
@@ -820,6 +826,7 @@ async function generateCSS(){
       }
     }
 
+    setCSS(stripCssComments(getCSS()));
     lastGenWidthPx = parseInt(document.getElementById('dim-width').value,10) || 970;
     lastGenHeightPx = parseInt(document.getElementById('dim-height').value,10) || 250;
     unitTypeChangedSinceGen = false;
@@ -927,6 +934,7 @@ async function refineCSS(){
       }
     }
 
+    setCSS(stripCssComments(getCSS()));
     schedRender();
     refineRound++;
     document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — preview updated';
@@ -1164,6 +1172,8 @@ window.addEventListener('DOMContentLoaded',function(){
     applyLogoPosition();
   });
 
+  var currentMobileLogoBlock = ''; // tracks exact text of the last-appended mobile override, for reliable removal
+
   function applyLogoPosition(){
     var pos = document.getElementById('logo-pos').value;
     var useMobile = document.getElementById('tg-logo-mobile').checked;
@@ -1181,12 +1191,18 @@ window.addEventListener('DOMContentLoaded',function(){
       css += '\n\n' + newRule;
     }
 
-    // Remove any previous auto-generated mobile override block
-    css = css.replace(/\n*\/\* AUTO:sub-line2-mobile \*\/[\s\S]*?\n\}\n\}/, '');
+    // Remove the exact previous mobile block if we know what it was (no comments, no fragile regex)
+    if (currentMobileLogoBlock && css.indexOf(currentMobileLogoBlock) !== -1) {
+      css = css.replace(currentMobileLogoBlock, '');
+      css = css.replace(/\n{3,}/g, '\n\n').trim();
+    }
+    currentMobileLogoBlock = '';
 
     if (useMobile) {
       var mobileBlock = LOGO_POS_RULES[mobilePos] || LOGO_POS_RULES['bottom-center'];
-      css += '\n\n/* AUTO:sub-line2-mobile */\n@media (max-width: 480px) {\n  .sub-line2 {\n    ' + mobileBlock.replace(/\n/g,'\n  ') + '\n  }\n}';
+      var mediaBlock = '\n\n@media (max-width: 480px) {\n  .sub-line2 {\n    ' + mobileBlock.replace(/\n/g,'\n    ') + '\n  }\n}';
+      css += mediaBlock;
+      currentMobileLogoBlock = mediaBlock;
     }
 
     setCSS(css);

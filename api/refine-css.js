@@ -51,6 +51,8 @@ WHY THESE RULES EXIST (so you apply them correctly, not just mechanically):
 
 TWO TECHNIQUES YOU MUST USE WHEN THE SCREENSHOT OR FEEDBACK CALLS FOR THEM:
 
+0. Image corner radius: if feedback mentions rounded corners or the reference shows them, commit to a specific pixel value on .hero img — 4-8px for subtle rounding, 12-20px for pronounced, 50% for circular. Do not leave border-radius unset or guess vaguely.
+
 1. Provider name as a full-width label ABOVE the image (not beside/below headline): .dianomi_provider_short and .maintext are both trapped inside .text by default. To break the provider out so it spans above both image and headline, use CSS Grid with display:contents:
 .dianomihref { display:grid; grid-template-columns:90px 1fr; grid-template-areas:"label label" "image text"; column-gap:14px; row-gap:8px; }
 .hero img { grid-area:image; }
@@ -130,6 +132,9 @@ ${domNote}
 
 Num Ads: ${numAds}
 Element Order: ${order}
+${order === 'text,provider'
+  ? 'The headline (.maintext) must appear ABOVE/BEFORE the provider name (.dianomi_provider_short) visually. If the current CSS does not achieve this, add: .text { display:flex; flex-direction:column; } .text .maintext { order:1; } .text .dianomi_provider_short { order:2; }'
+  : 'The provider name (.dianomi_provider_short) must appear ABOVE/BEFORE the headline (.maintext) visually. If the current CSS does not achieve this, add: .text { display:flex; flex-direction:column; } .text .dianomi_provider_short { order:1; } .text .maintext { order:2; }'}
 
 Here is the reference screenshot that the CSS should match:
 
