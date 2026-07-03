@@ -402,7 +402,22 @@ module.exports = async function handler(req, res) {
 
   const unitTypeLabel = unitType === 'responsive' ? 'Responsive' : 'IAB Fixed';
   const dimensionNote = widthPx && heightPx
-    ? `\n\nUNIT CONTEXT: This is a ${widthPx}×${heightPx}px unit, type: ${unitTypeLabel}. ${unitType === 'iab' ? 'Standard IAB ad size — shrinks proportionally, no layout-changing breakpoints, use max-width:100% on wrapper.' : 'Fully responsive unit — use proper breakpoints to reflow on mobile.'}`
+    ? `
+
+UNIT TYPE — MANDATORY BEHAVIOUR (this is not optional):
+This is a ${widthPx}×${heightPx}px unit. Type: ${unitTypeLabel}.
+${unitType === 'iab'
+  ? `Because this is IAB Fixed:
+- Add \`max-width: ${widthPx}px\` and \`width: 100%\` to .wrapper so it shrinks proportionally inside any container up to its natural size
+- Do NOT add breakpoints that change flex-direction, hide elements, or restructure the layout
+- At most ONE fallback media query at max-width:480px is allowed, and it may ONLY flip flex-direction from row to column if the layout is horizontal — nothing else
+- Font sizes and image dimensions stay fixed at their base values; they do not scale per breakpoint`
+  : `Because this is Responsive:
+- Add real breakpoints (768px and 480px minimum) that genuinely restructure the layout for smaller screens
+- Stack horizontal layouts vertically on mobile
+- Reduce font sizes at each breakpoint
+- Adjust padding/gaps to be tighter on mobile
+- This unit must look intentionally designed for phone screens, not just shrunk`}`
     : '';
 
   const domNote = `

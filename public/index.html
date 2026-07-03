@@ -787,6 +787,7 @@ async function generateCSS(){
 
     lastGenWidthPx = parseInt(document.getElementById('dim-width').value,10) || 970;
     lastGenHeightPx = parseInt(document.getElementById('dim-height').value,10) || 250;
+    unitTypeChangedSinceGen = false;
     status.textContent='✓ CSS generated';
     schedRender();
     setTimeout(function(){ switchToRefinePhase(); }, 600);
@@ -812,6 +813,16 @@ async function generateCSS(){
 // ─────────────────────────────────────────────
 async function refineCSS(){
   var feedback = document.getElementById('refine-input').value.trim();
+
+  // Auto-inject a conversion instruction if Unit Type was changed since last generation
+  if(unitTypeChangedSinceGen){
+    var conversionText = S.unitType === 'iab'
+      ? 'Convert this unit to IAB Fixed behaviour: remove any breakpoint-driven layout restructuring, make the wrapper shrink proportionally with max-width:100%, keep at most one small-viewport (480px) fallback that only adjusts flex-direction — do not add multiple breakpoints or hide/resize elements progressively.'
+      : 'Convert this unit to fully Responsive behaviour: add proper breakpoints (e.g. 768px, 480px) that genuinely reflow the layout — stack elements vertically on mobile, adjust font sizes and spacing per breakpoint, hide non-essential elements if needed at small sizes.';
+    feedback = feedback ? (conversionText + ' Also: ' + feedback) : conversionText;
+    unitTypeChangedSinceGen = false;
+  }
+
   if(!feedback){ document.getElementById('refine-status').textContent='Please describe what needs fixing.'; return; }
 
   var btn = document.getElementById('refine-btn');
@@ -981,7 +992,10 @@ window.addEventListener('DOMContentLoaded',function(){
     btn.classList.add('active');schedRender();
   });
 
+  var unitTypeChangedSinceGen = false;
+
   function setUnitTypeUI(type){
+    if(S.unitType !== type) unitTypeChangedSinceGen = true;
     S.unitType = type;
     document.querySelectorAll('#unit-type-btns .btn, #unit-type-btns-refine .btn').forEach(function(b){
       b.classList.toggle('active', b.dataset.unittype === type);
@@ -998,14 +1012,33 @@ window.addEventListener('DOMContentLoaded',function(){
     setUnitTypeUI(btn.dataset.unittype);
   });
 
-  // Dimension preset buttons in upload modal
+  // Dimension preset buttons in upload modal — also sync main preview sliders
   document.getElementById('dim-presets').addEventListener('click',function(e){
     var btn=e.target.closest('[data-w]');if(!btn)return;
     document.getElementById('dim-width').value = btn.dataset.w;
     document.getElementById('dim-height').value = btn.dataset.h;
     document.querySelectorAll('#dim-presets .btn').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');
+    syncPreviewToDimensions();
   });
+
+  // Manual dimension typing also syncs preview
+  document.getElementById('dim-width').addEventListener('input', syncPreviewToDimensions);
+  document.getElementById('dim-height').addEventListener('input', syncPreviewToDimensions);
+
+  function syncPreviewToDimensions(){
+    var w = parseInt(document.getElementById('dim-width').value,10);
+    var h = parseInt(document.getElementById('dim-height').value,10);
+    if(w && w > 0){
+      var pct = Math.min(100, Math.round((w/MAX_W)*100));
+      document.getElementById('w-slider').value = pct;
+      updateWidth(pct);
+    }
+    if(h && h > 0){
+      document.getElementById('h-slider').value = h;
+      updateHeight(h);
+    }
+  }
 
   // Default to IAB active on load
   setUnitTypeUI('iab');

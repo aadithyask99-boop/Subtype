@@ -66,7 +66,20 @@ module.exports = async function handler(req, res) {
 
   const unitTypeLabel = unitType === 'responsive' ? 'Responsive' : 'IAB Fixed';
   const dimensionNote = widthPx && heightPx
-    ? `Unit: ${widthPx}×${heightPx}px, type: ${unitTypeLabel}. ${unitType === 'iab' ? 'Shrinks proportionally, no layout-changing breakpoints.' : 'Fully responsive, use breakpoints.'}`
+    ? `
+
+UNIT TYPE — MANDATORY BEHAVIOUR:
+This is a ${widthPx}×${heightPx}px unit. Type: ${unitTypeLabel}.
+${unitType === 'iab'
+  ? `IAB Fixed rules:
+- .wrapper needs max-width:${widthPx}px and width:100% so it shrinks proportionally
+- Remove any breakpoints that restructure layout, hide elements, or resize fonts progressively
+- At most ONE fallback query at max-width:480px, only flipping flex-direction row→column if needed
+- If the current CSS has multiple breakpoints or font-size changes per breakpoint, STRIP THEM — that violates IAB Fixed`
+  : `Responsive rules:
+- Add or keep real breakpoints (768px, 480px minimum)
+- Layout must genuinely restructure on mobile — stack elements, reduce font sizes, tighten spacing
+- If the current CSS has no media queries or only a token one, ADD proper ones — that is required for Responsive`}`
     : '';
 
   const domNote = `Active Header Html elements:
