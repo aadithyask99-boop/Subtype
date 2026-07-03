@@ -268,23 +268,28 @@ Used for: Telegraph, right-rail 5-image units
 ### Pattern E: Multi-ad grid, cards horizontal (4-column "Around the web")
 Used for: CNN, homepage grid units, "Around the web" style
 
+IMPORTANT: `.line2` is a sibling of `.hero` inside `.wrapper`. To make `.line2` span full width above the card row while `.hero` elements sit in a row, use `flex-wrap: wrap` and give `.line2` `width: 100%`. Do NOT declare `.wrapper` twice. Write it correctly once.
+
 ```css
 .wrapper {
   display: flex;
   flex-direction: row;
-  flex-wrap: nowrap;
-  gap: 20px;
-  padding: 20px 0;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px;
   position: relative;
+  box-sizing: border-box;
 }
+.line2 {
+  width: 100%;
+  flex-shrink: 0;
+  display: block;
+}
+.line2 .title { font: inherit; }
 .hero { flex: 1 1 0; min-width: 0; box-sizing: border-box; }
-.subhero a.dianomihref {
-  display: flex;
-  flex-direction: column;
-  text-decoration: none;
-}
-.subhero a.dianomihref img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
-.text { padding-top: 10px; position: static !important; }
+.subhero a.dianomihref { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+.subhero a.dianomihref img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; margin-bottom: 10px; }
+.text { position: static !important; }
 ```
 
 ---
@@ -501,77 +506,57 @@ span.line2 { display: none; }
 
 ### Example 3: 4-column horizontal grid unit ("Around the web" / CNN style)
 
+Key structural point: `.wrapper` uses `flex-direction:row` to lay `.hero` elements side by side. Each `.hero` is `flex:1 1 0` so they share space equally. `.line2` sits ABOVE the row as a block-level element inside the flex column created by... wait — the DOM has `.line2` as a sibling of `.hero` inside `.wrapper`. Since `.wrapper` is `flex-direction:row`, `.line2` would also be in the row.
+
+The correct approach: wrap the card row in a container. But we can't change the DOM. So use `flex-wrap` and make `.line2` full-width:
+
 ```css
 body {
-  margin: 0; padding: 0; width: 100%;
-  height: auto; overflow: visible;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: auto;
+  overflow: visible;
   box-sizing: border-box;
 }
 
 .wrapper {
-  width: 100%; max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px 0;
+  width: 100%;
   background: #fff;
-  display: flex;
-  flex-direction: column;
-  position: relative;
+  padding: 16px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  position: relative;
 }
 
 .line2 {
-  display: block;
-  font-size: 16px; font-weight: 900;
+  width: 100%;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
   color: #1c1d20;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #dcdcdd;
+  display: block;
 }
 .line2 .title { font: inherit; }
 
 .sub-line2 {
   position: absolute;
-  top: 20px; right: 0;
-  display: flex; align-items: center;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
 }
 .sub-line2 img.dianomi-lg { width: 55px; height: auto; }
 
-/* Cards in a row */
-.dianomi-wt,
-.wrapper > .hero.first,
-.wrapper > .hero,
-.wrapper > .hero.last {
-  /* wrapper becomes row container via flex override below */
-}
-
-/* Override wrapper to be row for the card grid */
-.wrapper {
-  flex-direction: column; /* column for heading + row of cards */
-}
-
-/* Card row container — target the heroes as a group */
 .hero {
-  display: flex;
-  flex-direction: column;
-  float: none;
-  width: 25%;
+  flex: 1 1 0;
+  min-width: 0;
   box-sizing: border-box;
-  padding: 0 10px;
-}
-
-/* Make wrapper lay heroes in a row after line2 */
-.wrapper {
-  display: table;
-  width: 101%;
-  margin-left: -1%;
-}
-
-.hero {
-  float: left;
-  width: 25%;
-  padding-left: 1%;
-  box-sizing: border-box;
-  min-height: 260px;
 }
 
 .subhero a.dianomihref {
@@ -583,37 +568,41 @@ body {
 
 .subhero a.dianomihref img {
   width: 100%;
-  max-width: 370px;
-  height: auto;
-  border-radius: 15px;
-  margin-bottom: 10px;
+  aspect-ratio: 16/9;
   object-fit: cover;
+  display: block;
+  margin-bottom: 10px;
 }
 
 .text { position: static !important; }
 
-.dianomi_provider_short {
-  display: block !important;
-  font-size: 12px; color: #6f7173;
-  font-weight: 400; margin-top: 3px;
-}
-
-.maintext {
-  font-size: 16px; font-weight: 700;
-  color: #1474FB; line-height: 1.3;
-  display: block;
-}
-
 span.line2 { display: none; }
 .heading_top, .dianomiHeading.heading { display: none; }
+
+.maintext {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1a1a1a;
+  display: block;
+  margin: 0 0 4px 0;
+}
+
+.dianomi_provider_short {
+  font-size: 12px;
+  font-weight: 400;
+  color: #666;
+  display: block !important;
+}
+
 .action { display: none; }
 
-@media (max-width: 800px) {
-  .hero { width: 50%; min-height: 285px; }
+@media (max-width: 768px) {
+  .hero { flex: 1 1 calc(50% - 8px); }
 }
-@media (max-width: 600px) {
-  .hero { width: 100%; padding: 20px 10px; }
-  #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8 { display: none; }
+@media (max-width: 480px) {
+  .hero { flex: 1 1 100%; }
+  .wrapper { gap: 12px; }
 }
 ```
 
@@ -719,4 +708,11 @@ When given a screenshot:
 7. **Note the Dianomi attribution position** — top-right, bottom-right, or bottom-centre
 8. **Generate complete CSS** using the patterns above as starting points, modifying to match what you see
 
-Output ONLY valid CSS. No markdown fences, no backticks, no comments unless helpful. Start directly with the first CSS rule. Be concise — aim for 60-100 rules.
+**STRICT OUTPUT RULES — violations produce broken CSS:**
+- Each CSS selector must appear EXACTLY ONCE. Never declare `.wrapper { }` twice. Plan the full ruleset for each selector before writing it.
+- No CSS comments whatsoever. Not even `/* ... */`. Pure CSS rules only.
+- No redundant properties. No `float: none` unless something was floated. No `display: block` on block elements.
+- For the 4-column grid pattern: write `.wrapper { display:flex; flex-direction:row; flex-wrap:wrap }` ONCE. Give `.line2 { width:100% }` to make it span full width. Do not fight the flex layout.
+- Do not repeat properties that are already in `body` (e.g. `box-sizing` if already set globally).
+
+Output ONLY valid CSS. No markdown fences, no backticks, no comments. Start directly with the first CSS rule. Aim for 40-60 rules total.
