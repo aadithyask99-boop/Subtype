@@ -430,10 +430,19 @@ Before writing any CSS, look carefully at the screenshot and work through these 
 4. Image — aspect ratio, corner radius (sharp or rounded, and how much), position relative to text (above/below/left/right), any visible gap between image and text.
 5. Typography — is the headline serif or sans-serif? Estimate its font-size relative to the provider label below it (usually 1.5-3x larger). What colour is the headline — pure black, dark grey, or a brand colour (e.g. blue links)? What colour and weight is the provider label — is it uppercase, does it have letter-spacing?
 6. Spacing — estimate the outer padding of the wrapper in pixels by comparing to the image width. Estimate the gap between cards/items. Estimate the gap between image and text within a card.
-7. Attribution — where does the Dianomi logo sit — bottom-right, top-right, or bottom-center of the whole unit?
+7. Attribution — where does the Dianomi logo sit? Six possible positions: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right.
 8. Background and dividers — is there a background colour other than white? Are there visible border lines between items, and what colour/weight?
 
 Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the three reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
+
+FINAL REMINDERS before you write (these are the most commonly missed rules):
+- Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the three reference examples above.
+- Each selector appears EXACTLY ONCE in your output.
+- Use .hero img, never .dianomihref img.
+- Use .dianomihref (short form), never .subhero a.dianomihref.
+- If cards sit side by side in a row, use .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } — do not default to column.
+- Group repeated ID selectors with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains.
+- No CSS comments, no markdown fences.
 
 Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + domNote + dimensionNote;
 

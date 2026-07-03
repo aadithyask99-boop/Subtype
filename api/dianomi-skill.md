@@ -856,7 +856,7 @@ Note: not every `.hero` in a grid must be the same size — if the screenshot sh
 - Image treatment — aspect ratio, rounded corners, position
 - Typography — font family, sizes, colours, weight
 - Spacing — wrapper padding, gap between slots, text padding
-- Attribution logo position — top-right, bottom-right, bottom-centre
+- Attribution logo position — six possible positions: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right
 - Does headline length vary but card height must stay fixed? Consider `-webkit-line-clamp`.
 - Visual order of provider/headline — if it doesn't match the assumed Element Order, use flex `order` on `.text` to fix it (see Element Order section above)
 
