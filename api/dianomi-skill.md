@@ -734,6 +734,85 @@ This means you do NOT need to rely on the Element Order admin field at all — C
 
 These patterns come from real shipped CNN subtype CSS and are worth using when appropriate.
 
+### Breaking an element out of `.text` to span full width using `display:contents`
+The DOM has `.dianomi_provider_short` and `.maintext` BOTH nested inside `.text`, which is a sibling of `img` inside `.dianomihref`. Normally this means provider and headline are always visually grouped together next to (or below) the image.
+
+But some designs need the provider name to appear as a full-width section label ABOVE both the image and the headline — for example a brand name with an underline sitting above a photo, with the description text beside the photo. Since you cannot change the DOM, use `display: contents` on `.text` to make its children (`.dianomi_provider_short`, `.maintext`) become direct grid items of `.dianomihref` itself, "unwrapping" `.text` visually while the DOM stays valid:
+
+```css
+.dianomihref {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  grid-template-areas:
+    "label label"
+    "image text";
+  column-gap: 14px;
+  row-gap: 8px;
+  align-items: start;
+}
+
+.hero img {
+  grid-area: image;
+  width: 100%;
+  height: auto;
+}
+
+.text {
+  display: contents;
+}
+
+.dianomi_provider_short {
+  grid-area: label;
+  display: block !important;
+}
+
+.dianomi_provider_short::after {
+  content: '';
+  display: block;
+  width: 32px;
+  height: 1px;
+  background: #000;
+  margin-top: 6px;
+}
+
+.maintext {
+  grid-area: text;
+}
+```
+
+`display: contents` is the key trick: it makes `.text` disappear from the layout box model entirely, so its children (`.dianomi_provider_short`, `.maintext`) participate directly in `.dianomihref`'s grid instead of being trapped inside `.text`'s own box. Recognise this need when a screenshot shows the provider name detached from the immediate image/headline grouping — sitting above both, or off to a completely different position than a simple flex row/column can achieve.
+
+### Multi-line headings with different typography per line using pseudo-elements
+Header Html's `.line2 <span class="title">TEXT</span>` only supports one text string via the admin field. If a screenshot shows a two-part heading with genuinely different styling per line (e.g. a large serif title plus a smaller italic/script subtitle underneath), and the subtitle text is fixed/static for this specific subtype (not meant to change per campaign), use a pseudo-element to inject the second line:
+
+```css
+.line2 {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.line2 .title {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 32px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #1a1a1a;
+}
+
+.line2 .title::after {
+  content: 'for Him';
+  display: block;
+  font-family: 'Dancing Script', cursive;
+  font-style: italic;
+  font-size: 22px;
+  margin-top: 4px;
+  color: #1a1a1a;
+}
+```
+
+Do not default `.line2` to a generic small-caps grey label just because that's a common pattern — always read the screenshot's actual heading typography (font, size, weight, colour, any secondary line) and replicate it exactly. Headings vary enormously between publishers: some are large decorative titles, some are small utility labels, some have accent marks or dividers. Never assume; always observe and match what is shown.
+
 ### Grouping multiple slot IDs with `:is()`
 Cleaner than repeating full selector chains for every ID:
 ```css

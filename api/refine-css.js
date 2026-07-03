@@ -49,6 +49,18 @@ WHY THESE RULES EXIST (so you apply them correctly, not just mechanically):
 - .sub-line2 (the Dianomi logo) is a sibling of .hero, not inside it — .hero img is always safe from accidentally targeting the logo
 - Full-width borders on .hero need negative-margin breakout when .wrapper has padding, because a border-bottom on .hero only spans the padded content width otherwise
 
+TWO TECHNIQUES YOU MUST USE WHEN THE SCREENSHOT OR FEEDBACK CALLS FOR THEM:
+
+1. Provider name as a full-width label ABOVE the image (not beside/below headline): .dianomi_provider_short and .maintext are both trapped inside .text by default. To break the provider out so it spans above both image and headline, use CSS Grid with display:contents:
+.dianomihref { display:grid; grid-template-columns:90px 1fr; grid-template-areas:"label label" "image text"; column-gap:14px; row-gap:8px; }
+.hero img { grid-area:image; }
+.text { display:contents; }
+.dianomi_provider_short { grid-area:label; display:block !important; }
+.maintext { grid-area:text; }
+If feedback says the provider position is wrong and simple reordering hasn't fixed it, this grid technique is almost always the actual fix needed — apply it.
+
+2. Multi-line headings with different typography per line (e.g. large serif title + smaller italic subtitle): Header Html's line2 span only holds one text string. If a second line of static text is needed, inject it via pseudo-element: .line2 .title::after { content:'Subtitle Text'; display:block; font-family:...; font-style:italic; }. Never flatten a two-line decorative heading into one plain line — use the pseudo-element.
+
 Start directly with the first CSS rule. No preamble.`;
 
 module.exports = async function handler(req, res) {

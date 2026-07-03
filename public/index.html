@@ -462,6 +462,33 @@ function buildHeaderHtml(opts) {
   return parts.join('\n');
 }
 
+// ─────────────────────────────────────────────
+// DETERMINISTIC LOCAL IAB CONVERSION — no AI call, instant, always reliable
+// Strips media queries, ensures wrapper has proportional max-width
+// ─────────────────────────────────────────────
+function convertToIABLocal(css, targetWidthPx){
+  var stripped = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+  stripped = stripped.replace(/\n{3,}/g, '\n\n').trim();
+
+  var w = targetWidthPx || lastGenWidthPx || 970;
+
+  var wrapperRegex = /\.wrapper\s*\{([^}]*)\}/;
+  if (wrapperRegex.test(stripped)) {
+    stripped = stripped.replace(wrapperRegex, function(match, inner){
+      var hasMaxWidth = /max-width\s*:/.test(inner);
+      var hasWidth100 = /width\s*:\s*100%/.test(inner);
+      var additions = '';
+      if(!hasMaxWidth) additions += '\n  max-width: ' + w + 'px;';
+      if(!hasWidth100) additions += '\n  width: 100%;';
+      return '.wrapper {' + inner.replace(/\s+$/,'') + additions + '\n}';
+    });
+  } else {
+    stripped += '\n\n.wrapper {\n  max-width: ' + w + 'px;\n  width: 100%;\n}';
+  }
+
+  return stripped;
+}
+
 function getHeaderToggleState() {
   return {
     logo: document.getElementById('tg-logo').checked,
@@ -1018,13 +1045,22 @@ window.addEventListener('DOMContentLoaded',function(){
 
   document.getElementById('unit-type-btns-refine').addEventListener('click',function(e){
     var btn=e.target.closest('[data-unittype]');if(!btn)return;
-    // Only auto-convert if this actually has generated CSS already (refine panel visible with image)
     var hasImage = document.getElementById('refine-has-image').style.display !== 'none';
     var wasChange = S.unitType !== btn.dataset.unittype;
-    setUnitTypeUI(btn.dataset.unittype);
+    var newType = btn.dataset.unittype;
+    setUnitTypeUI(newType);
     if(hasImage && wasChange){
-      // One-click preset switch: trigger refine immediately with auto-injected conversion text
-      refineCSS();
+      if(newType === 'iab'){
+        // Deterministic, instant, no AI call — always reliable
+        var converted = convertToIABLocal(getCSS(), lastGenWidthPx);
+        setCSS(converted);
+        schedRender();
+        document.getElementById('refine-status').textContent = '✓ Converted to IAB Fixed instantly — media queries stripped, wrapper set to max-width:' + lastGenWidthPx + 'px';
+        unitTypeChangedSinceGen = false;
+      } else {
+        // Responsive requires real design judgement (what changes at each breakpoint) — needs AI
+        refineCSS();
+      }
     }
   });
 

@@ -441,12 +441,13 @@ Context:
 Before writing any CSS, look carefully at the screenshot and work through these questions internally:
 1. Layout family — which of the 5 patterns in your instructions does this match closest, or is it a hybrid?
 2. Count — exactly how many ad cards/items are visible?
-3. Heading — is there a unit-level label (e.g. "Sponsored Content", "Around the web")? If yes, that's div.line2 — note its font size, weight, colour, and whether it has a border underneath.
+3. Heading — is there a unit-level label (div.line2)? DO NOT default to a generic small-caps grey label. Read its ACTUAL typography from the screenshot: font family (serif/script/sans), size, weight, colour, letter-spacing, alignment, any border/divider. If it has TWO visually distinct lines (e.g. a large title plus a smaller italic/script subtitle), use a pseudo-element (.line2 .title::after with content) to render the second line — see the "Multi-line headings" technique in your instructions. Never skip or simplify a heading just because it's more complex than the reference examples.
 4. Image — aspect ratio, corner radius (sharp or rounded, and how much), position relative to text (above/below/left/right), any visible gap between image and text.
-5. Typography — is the headline serif or sans-serif? Estimate its font-size relative to the provider label below it (usually 1.5-3x larger). What colour is the headline — pure black, dark grey, or a brand colour (e.g. blue links)? What colour and weight is the provider label — is it uppercase, does it have letter-spacing?
+5. Typography — is the headline serif or sans-serif? Estimate its font-size relative to the provider label. What colour is the headline? What colour and weight is the provider label — is it uppercase, does it have letter-spacing, does it have an underline or accent mark beneath it (small coloured bar, thin line)?
 6. Spacing — estimate the outer padding of the wrapper in pixels by comparing to the image width. Estimate the gap between cards/items. Estimate the gap between image and text within a card.
 7. Attribution — where does the Dianomi logo sit? Six possible positions: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right.
 8. Background and dividers — is there a background colour other than white? Are there visible border lines between items, and what colour/weight?
+9. Provider position relative to image — is the provider name inline with/beside the headline (normal case), OR does it appear as a separate label ABOVE both the image and headline (e.g. a brand name spanning the full card width, with the image and description below it)? If the latter, this requires the display:contents grid-breakout technique from your instructions — .text alone cannot achieve this because .dianomi_provider_short and .maintext are both trapped inside it by default.
 
 Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the three reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
 
