@@ -388,7 +388,7 @@ module.exports = async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) { return res.status(500).json({ error: 'GEMINI_API_KEY not configured' }); }
 
-  const ALLOWED_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'];
+  const ALLOWED_MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite', 'gemini-2.0-flash'];
 
   const {
     imageBase64,
@@ -524,14 +524,13 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         ]
       }
     ],
-    generationConfig: {
+    generationConfig: Object.assign({
       temperature: 0.2,
       maxOutputTokens: 4000,
-      topP: 0.95,
-      thinkingConfig: {
-        thinkingBudget: thinkingBudgetByModel[selectedModel] || 1024
-      }
-    }
+      topP: 0.95
+    }, selectedModel.startsWith('gemini-2.5') ? {
+      thinkingConfig: { thinkingBudget: thinkingBudgetByModel[selectedModel] || 1024 }
+    } : {})
   };
 
   try {

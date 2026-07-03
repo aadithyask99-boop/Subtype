@@ -196,6 +196,7 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
     <option value="gemini-2.5-flash" selected>2.5 Flash</option>
     <option value="gemini-2.5-pro">2.5 Pro (slower, stronger)</option>
     <option value="gemini-2.5-flash-lite">2.5 Flash-Lite (fastest)</option>
+    <option value="gemini-2.0-flash">2.0 Flash (legacy)</option>
   </select>
   <button class="ss-btn" id="ss-btn">✦ Screenshot → CSS</button>
 </div>
@@ -305,7 +306,12 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
                 <button class="btn" data-unittype="iab">IAB Fixed</button>
                 <button class="btn" data-unittype="responsive">Responsive</button>
               </div>
-              <span style="font-size:9px;color:var(--text-dim);margin-left:auto;">Change + Refine to convert</span>
+              <select class="psel mini-sel" id="gemini-model-refine" title="Model for Refine calls" style="margin-left:auto;">
+                <option value="gemini-2.5-flash" selected>2.5 Flash</option>
+                <option value="gemini-2.5-pro">2.5 Pro</option>
+                <option value="gemini-2.5-flash-lite">Flash-Lite</option>
+                <option value="gemini-2.0-flash">2.0 Flash</option>
+              </select>
             </div>
             <textarea id="refine-input" placeholder='e.g. "cards should be horizontal not vertical", "font too large", "image needs rounded corners 8px", "gap between cards too wide"' style="width:100%;height:70px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:11px;font-family:system-ui,sans-serif;padding:7px;border-radius:var(--radius);resize:vertical;outline:none;box-sizing:border-box;"></textarea>
             <div style="font-size:10px;color:var(--text-dim);">Cmd+Enter to refine</div>
@@ -562,6 +568,9 @@ function rebuildHeaderFromToggles() {
   var opts = getHeaderToggleState();
   setHeader(buildHeaderHtml(opts));
   if (opts.line2) ensureLine2Styling();
+  // Auto-expand Header Html section so the code change is visible
+  if(!SEC.header) toggleSec('header');
+  if(cmHeaderReady && cmHeader) cmHeader.refresh();
   schedRender();
 }
 
@@ -1315,6 +1324,14 @@ window.addEventListener('DOMContentLoaded',function(){
   document.getElementById('modal-x').addEventListener('click', closeModal);
   document.getElementById('modal-cancel').addEventListener('click',closeModal);
   document.getElementById('refine-btn').addEventListener('click',refineCSS);
+
+  // Sync model selectors between top bar and refine panel
+  document.getElementById('gemini-model').addEventListener('change',function(){
+    document.getElementById('gemini-model-refine').value = this.value;
+  });
+  document.getElementById('gemini-model-refine').addEventListener('change',function(){
+    document.getElementById('gemini-model').value = this.value;
+  });
   document.getElementById('ref-toggle').addEventListener('click',function(){
     var panel = document.getElementById('ref-panel');
     var isHidden = panel.style.display === 'none';
