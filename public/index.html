@@ -569,6 +569,7 @@ function rebuildHeaderFromToggles() {
   var opts = getHeaderToggleState();
   setHeader(buildHeaderHtml(opts));
   if (opts.line2) ensureLine2Styling();
+  if (opts.action) ensureActionStyling();
   // Auto-expand Header Html section so the code change is visible
   if(!SEC.header) toggleSec('header');
   if(cmHeaderReady && cmHeader) cmHeader.refresh();
@@ -589,6 +590,22 @@ function ensureLine2Styling() {
   var defaultLine2 = '\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 14px;\n  font-weight: 700;\n  color: #1a1a1a;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 12px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}';
 
   css += defaultLine2;
+  setCSS(css);
+  setTimeout(scrollCSSToBottomAndFlash, 50);
+}
+
+// Several presets have .action { display: none; } as a baseline default (button hidden
+// unless a subtype uses it). If the "Read More" toggle is turned ON, the Header Html fill
+// script populates .action with text, but if CSS still says display:none, nothing visibly
+// changes even though the DOM content exists. Detect this and flip to a real button style.
+function ensureActionStyling() {
+  var css = getCSS();
+  var hiddenActionRegex = /\.action\s*\{\s*display:\s*none\s*;?\s*\}/;
+  if (!hiddenActionRegex.test(css)) return; // either already styled, or no .action rule at all (leave as-is)
+
+  var defaultAction = '.action {\n  display: inline-block;\n  width: fit-content;\n  padding: 10px 24px;\n  background: #000;\n  color: #fff;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 13px;\n  font-weight: 600;\n  cursor: pointer;\n  border: none;\n  margin-top: 10px;\n}';
+
+  css = css.replace(hiddenActionRegex, defaultAction);
   setCSS(css);
   setTimeout(scrollCSSToBottomAndFlash, 50);
 }

@@ -63,6 +63,8 @@ If feedback says the provider position is wrong and simple reordering hasn't fix
 
 2. Multi-line headings with different typography per line (e.g. large serif title + smaller italic subtitle): Header Html's line2 span only holds one text string. If a second line of static text is needed, inject it via pseudo-element: .line2 .title::after { content:'Subtitle Text'; display:block; font-family:...; font-style:italic; }. Never flatten a two-line decorative heading into one plain line — use the pseudo-element.
 
+3. Genuinely different design per device (not just scaled): if feedback mentions "on mobile," "on tablet," "on desktop but different on mobile," "at [X]px," or similar device-specific language, this means write DISTINCT rules per breakpoint, not one generic media query that only shrinks fonts. Consider per tier: hiding elements (.maintext{display:none} if description shouldn't show on mobile), changing image shape (rectangular to circular via border-radius:50%), flipping layout direction (grid to stacked list), changing text truncation (-webkit-line-clamp count), and progressive column counts (4→2→1 for grids). A mobile view should look like a deliberately designed mobile experience, not the desktop version shrunk. Write real breakpoints: 1024px (tablet) and 480px (mobile) are typical tiers unless feedback specifies otherwise.
+
 Start directly with the first CSS rule. No preamble.`;
 
 module.exports = async function handler(req, res) {

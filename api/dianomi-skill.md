@@ -892,6 +892,52 @@ When a unit sits inside an infinite-scroll feed and must not grow arbitrarily ta
 
 ---
 
+## ADAPTIVE DESIGN — MAKING A UNIT GENUINELY LOOK DIFFERENT PER DEVICE, NOT JUST SMALLER
+
+A Responsive unit should not just be the desktop design scaled down. Real adaptive design changes WHAT is shown and HOW it's arranged at each tier, not only font sizes. When a person describes different intent per device ("on mobile hide the description," "make it a single column on tablet," "circular thumbnail on phone"), treat each breakpoint as its own design decision, not a shrunk copy of the previous one.
+
+### Three-tier thinking (desktop / tablet / mobile)
+
+```css
+/* DESKTOP (default, no media query) — full experience */
+.wrapper { display: flex; flex-direction: row; flex-wrap: wrap; gap: 16px; }
+.hero { flex: 1 1 calc(25% - 12px); }
+.maintext { font-size: 16px; -webkit-line-clamp: 3; }
+.dianomi_provider_short { display: block !important; }
+
+@media (max-width: 1024px) {
+  /* TABLET — reduce density, keep full content */
+  .hero { flex: 1 1 calc(50% - 12px); }
+  .maintext { font-size: 15px; -webkit-line-clamp: 2; }
+}
+
+@media (max-width: 480px) {
+  /* MOBILE — genuinely different: compact list, no description, small thumbnail */
+  .wrapper { flex-direction: column; gap: 8px; }
+  .hero { flex: 1 1 100%; }
+  .dianomihref { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+  .hero img { width: 60px; height: 60px; flex-shrink: 0; border-radius: 50%; object-fit: cover; }
+  .maintext { display: none; }
+  .dianomi_provider_short { font-size: 12px; }
+}
+```
+
+Notice mobile here isn't "the same 4-column grid but smaller" — it's a completely different arrangement (single-column compact list, circular thumbnails, headline hidden entirely, only provider name shown). This is what "look different per device" means in practice.
+
+### Common per-tier changes worth considering, based on what the person describes or what the screenshot needs
+- **Hide/show elements**: `.maintext { display: none }` on mobile if only the image+provider should show; `.action { display: none }` on mobile if a CTA button doesn't fit
+- **Change image shape**: rectangular on desktop, circular (`border-radius: 50%`) or square on mobile for compact lists
+- **Change layout direction**: horizontal card grid on desktop → vertical stacked list on mobile, or image-left-text-right on desktop → image-top-text-below on mobile
+- **Change text truncation**: 3-line clamp on desktop, 1-line clamp or full hide on mobile
+- **Change spacing density**: generous gaps on desktop, tight gaps on mobile to fit more content per scroll
+- **Change typography scale**: not just smaller — sometimes a different weight or letter-spacing reads better small (e.g. drop letter-spacing on mobile since tracked-out text wastes space)
+- **Change column count progressively**: 4 → 2 → 1 is typical for grids; don't skip straight from 4 to 1 without a tablet tier unless the person only mentions two tiers
+
+### Recognising device-specific intent in feedback
+Phrases like "on mobile," "on tablet," "on phone," "at [breakpoint]px," "when it's smaller," "on desktop but different on mobile" signal the person wants tier-specific treatment, not uniform scaling. When you see this language, write distinct rules per breakpoint rather than one generic `@media` block that only adjusts a couple of font-sizes. Ask yourself: would someone looking at only the mobile view recognise it as a *deliberately designed* mobile experience, or does it look like the desktop version just got smaller? Aim for the former.
+
+---
+
 ## TYPE ID → LAYOUT GUIDANCE
 
 | Type Id | Dimensions | Typical Layout |
