@@ -568,7 +568,7 @@ function getLogoPositionState() {
 function rebuildHeaderFromToggles() {
   var opts = getHeaderToggleState();
   setHeader(buildHeaderHtml(opts));
-  if (opts.line2) ensureLine2Styling();
+  syncLine2Styling(opts.line2);
   syncActionStyling(opts.action);
   // Auto-expand Header Html section so the code change is visible
   if(!SEC.header) toggleSec('header');
@@ -581,50 +581,67 @@ function rebuildHeaderFromToggles() {
 // but the current CSS has no real .line2 {} rule (only the unrelated span.line2 hide
 // rule), inject a sensible default so the heading actually renders instead of sitting
 // unstyled and looking like nothing happened.
-function ensureLine2Styling() {
+// Toggle Line2 ON: inject default styling if none exists yet.
+// Toggle Line2 OFF: REMOVE the .line2 rule(s) entirely — not just hide them —
+// so copying this CSS to production never carries dead/unused rules.
+function syncLine2Styling(shouldExist) {
   var css = getCSS();
-  // Match a genuine div.line2 style block: ".line2 {" not preceded by "span" or ".title"
-  var hasRealLine2Style = /(?:^|[^a-zA-Z0-9_.])\.line2\s*\{/.test(css.replace(/span\.line2\s*\{[^}]*\}/g, ''));
-  if (hasRealLine2Style) return;
+  // Match real div.line2 rules (not span.line2, which is a different element entirely)
+  var line2RuleRegex = /(?:^|\n)\.line2\s*\{[^}]*\}/g;
+  var line2TitleRuleRegex = /(?:^|\n)\.line2\s+\.title\s*\{[^}]*\}/g;
 
-  var defaultLine2 = '\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 14px;\n  font-weight: 700;\n  color: #1a1a1a;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 12px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}';
+  var hasRealLine2Style = line2RuleRegex.test(css);
+  line2RuleRegex.lastIndex = 0; // reset after .test()
 
-  css += defaultLine2;
-  setCSS(css);
-  setTimeout(scrollCSSToBottomAndFlash, 50);
-}
-
-// .action is a FIXED DOM element — part of .text's unchangeable structure — that always
-// exists regardless of the "Read More" toggle. The toggle only controls whether Header
-// Html's script fills it with text. This means CSS styling must be kept in sync BOTH ways:
-// when toggled ON, flip a hidden .action to a real visible button; when toggled OFF, flip
-// it back to hidden — otherwise you get an empty black box once the text is removed but
-// the button styling remains applied to nothing.
-var VISIBLE_ACTION_CSS = '.action {\n  display: inline-block;\n  width: fit-content;\n  padding: 10px 24px;\n  background: #000;\n  color: #fff;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 13px;\n  font-weight: 600;\n  cursor: pointer;\n  border: none;\n  margin-top: 10px;\n}';
-var HIDDEN_ACTION_CSS = '.action {\n  display: none;\n}';
-
-function syncActionStyling(shouldBeVisible) {
-  var css = getCSS();
-  // Match any single .action { ... } rule regardless of its current contents
-  var actionRuleRegex = /\.action\s*\{[^}]*\}/;
-
-  if (!actionRuleRegex.test(css)) {
-    // No .action rule exists at all yet — only add one if we need it visible;
-    // if hidden is the desired state and there's no rule, the button already
-    // won't render meaningfully without content, so nothing to do.
-    if (shouldBeVisible) {
-      css += '\n\n' + VISIBLE_ACTION_CSS;
+  if (!shouldExist) {
+    if (hasRealLine2Style) {
+      css = css.replace(line2RuleRegex, '').replace(line2TitleRuleRegex, '');
+      css = css.replace(/\n{3,}/g, '\n\n').trim();
       setCSS(css);
       setTimeout(scrollCSSToBottomAndFlash, 50);
     }
     return;
   }
 
-  var currentlyVisible = !/display:\s*none/.test(css.match(actionRuleRegex)[0]);
-  if (currentlyVisible === shouldBeVisible) return; // already in the correct state, no-op
+  if (hasRealLine2Style) return; // already present, leave as-is
 
-  var replacement = shouldBeVisible ? VISIBLE_ACTION_CSS : HIDDEN_ACTION_CSS;
-  css = css.replace(actionRuleRegex, replacement);
+  var defaultLine2 = '\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 14px;\n  font-weight: 700;\n  color: #1a1a1a;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 12px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}';
+  css += defaultLine2;
+  setCSS(css);
+  setTimeout(scrollCSSToBottomAndFlash, 50);
+}
+
+// Toggle Read More ON: inject a visible button style if none exists.
+// Toggle Read More OFF: REMOVE the .action rule entirely — .action is a fixed DOM
+// element so it always exists in the markup, but with no rule at all it renders as
+// an empty inline element with zero visual footprint (no content, no styling) —
+// exactly equivalent to display:none for practical purposes, but leaves no dead
+// rule behind when this CSS gets copied into production.
+var VISIBLE_ACTION_CSS = '.action {\n  display: inline-block;\n  width: fit-content;\n  padding: 10px 24px;\n  background: #000;\n  color: #fff;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 13px;\n  font-weight: 600;\n  cursor: pointer;\n  border: none;\n  margin-top: 10px;\n}';
+
+function syncActionStyling(shouldBeVisible) {
+  var css = getCSS();
+  var actionRuleRegex = /(?:^|\n)\.action\s*\{[^}]*\}/g;
+  var hasActionRule = actionRuleRegex.test(css);
+  actionRuleRegex.lastIndex = 0;
+
+  if (!shouldBeVisible) {
+    if (hasActionRule) {
+      css = css.replace(actionRuleRegex, '');
+      css = css.replace(/\n{3,}/g, '\n\n').trim();
+      setCSS(css);
+      setTimeout(scrollCSSToBottomAndFlash, 50);
+    }
+    return;
+  }
+
+  // shouldBeVisible: replace any existing rule (whatever it says) with the visible button style
+  if (hasActionRule) {
+    css = css.replace(actionRuleRegex, '\n\n' + VISIBLE_ACTION_CSS);
+  } else {
+    css += '\n\n' + VISIBLE_ACTION_CSS;
+  }
+  css = css.replace(/\n{3,}/g, '\n\n').trim();
   setCSS(css);
   setTimeout(scrollCSSToBottomAndFlash, 50);
 }
