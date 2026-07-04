@@ -16,6 +16,8 @@ function loadRefImage(filename) {
 const REF_IMAGE_1 = loadRefImage('example-1-portrait-single.png');       // MarketWatch portrait single-ad
 const REF_IMAGE_2 = loadRefImage('example-2-list-300x600.png');          // Telegraph 5-item list 300x600
 const REF_IMAGE_3 = loadRefImage('example-3-landscape-970x250.png');     // Landscape single-ad with CTA button
+const REF_IMAGE_4 = loadRefImage('example-4-heading-grid.png');         // 2-col grid with full-width heading + underline logo
+const REF_IMAGE_5 = loadRefImage('example-5-gift-guide.png');           // Multi-line decorative heading + provider-as-label grid technique
 
 const REF_CSS_1 = `body {
   padding: 0;
@@ -377,6 +379,10 @@ span.line2 {
   font-size: 20px;
 }`;
 
+const REF_CSS_4 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height: auto;\n  overflow: visible;\n  box-sizing: border-box;\n}\n\n.wrapper {\n  width: 100%;\n  background: #fff;\n  padding: 16px;\n  box-sizing: border-box;\n  display: flex;\n  flex-direction: row;\n  flex-wrap: wrap;\n  align-items: flex-start;\n  position: relative;\n}\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: \'Arial Black\', sans-serif;\n  font-size: 34px;\n  font-weight: 900;\n  color: #1a1a1a;\n  margin-bottom: 20px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}\n\n.sub-line2 {\n  position: absolute;\n  top: 16px;\n  right: 16px;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 20px;\n  height: auto;\n  opacity: 0.5;\n}\n\n.hero {\n  flex: 1 1 calc(50% - 8px);\n  box-sizing: border-box;\n  padding: 0 8px;\n  margin-bottom: 16px;\n}\n\n.dianomihref {\n  display: flex;\n  flex-direction: column;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  width: 100%;\n  aspect-ratio: 4/3;\n  object-fit: cover;\n  display: block;\n  margin-bottom: 10px;\n}\n\n.text {\n  position: static !important;\n  display: flex;\n  flex-direction: column;\n}\n\n.heading_top, .dianomiHeading.heading {\n  display: none;\n}\n\nspan.line2 {\n  display: none;\n}\n\n.maintext {\n  font-size: 20px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n  display: block;\n  margin: 0 0 4px 0;\n}\n\n.dianomi_provider_short {\n  font-size: 14px;\n  font-weight: 400;\n  color: #666;\n  display: block !important;\n}\n\n.action {\n  display: none;\n}`;
+
+const REF_CSS_5 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height: auto;\n  overflow: visible;\n  box-sizing: border-box;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%;\n  background: #fff;\n  padding: 24px 20px;\n  box-sizing: border-box;\n  display: flex;\n  flex-direction: column;\n  position: relative;\n}\n\n.line2 {\n  text-align: center;\n  padding-bottom: 16px;\n  margin-bottom: 20px;\n  border-bottom: 1px dashed #ccc;\n}\n\n.line2 .title {\n  display: block;\n  font-family: \'Playfair Display\', serif;\n  font-size: 34px;\n  letter-spacing: 2px;\n  text-transform: uppercase;\n  color: #1a1a1a;\n}\n\n.line2 .title::after {\n  content: \'for Him\';\n  display: block;\n  font-family: \'Dancing Script\', cursive;\n  font-style: italic;\n  font-size: 22px;\n  margin-top: 4px;\n  color: #1a1a1a;\n}\n\n.sub-line2 {\n  position: absolute;\n  bottom: 12px;\n  right: 12px;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 16px;\n  height: auto;\n  opacity: 0.5;\n}\n\n.hero {\n  width: 100%;\n  box-sizing: border-box;\n}\n\n.hero:not(.last) {\n  border-bottom: 1px dashed #ccc;\n  padding-bottom: 16px;\n  margin-bottom: 16px;\n}\n\n.dianomihref {\n  display: grid;\n  grid-template-columns: 90px 1fr;\n  grid-template-areas:\n    "label label"\n    "image text";\n  column-gap: 14px;\n  row-gap: 8px;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  grid-area: image;\n  width: 100%;\n  height: auto;\n  object-fit: cover;\n}\n\n.text {\n  display: contents;\n}\n\n.heading_top, .dianomiHeading.heading {\n  display: none;\n}\n\nspan.line2 {\n  display: none;\n}\n\n.dianomi_provider_short {\n  grid-area: label;\n  display: block !important;\n  font-family: \'Playfair Display\', serif;\n  font-size: 13px;\n  font-weight: 700;\n  letter-spacing: 1px;\n  text-transform: uppercase;\n  color: #1a1a1a;\n}\n\n.dianomi_provider_short::after {\n  content: \'\';\n  display: block;\n  width: 32px;\n  height: 1px;\n  background: #1a1a1a;\n  margin-top: 6px;\n}\n\n.maintext {\n  grid-area: text;\n  font-size: 14px;\n  line-height: 1.5;\n  color: #333;\n}\n\n.action {\n  display: none;\n}`;
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -460,10 +466,10 @@ Before writing any CSS, look carefully at the screenshot and work through these 
 8. Background and dividers — is there a background colour other than white? Are there visible border lines between items, and what colour/weight?
 9. Provider position relative to image — is the provider name inline with/beside the headline (normal case), OR does it appear as a separate label ABOVE both the image and headline (e.g. a brand name spanning the full card width, with the image and description below it)? If the latter, this requires the display:contents grid-breakout technique from your instructions — .text alone cannot achieve this because .dianomi_provider_short and .maintext are both trapped inside it by default.
 
-Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the three reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
+Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the five reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
 
 FINAL REMINDERS before you write (these are the most commonly missed rules):
-- Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the three reference examples above.
+- Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the five reference examples above.
 - Each selector appears EXACTLY ONCE in your output.
 - Use .hero img, never .dianomihref img.
 - Use .dianomihref (short form), never .subhero a.dianomihref.
@@ -514,6 +520,32 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'model',
         parts: [
           { text: 'I see a landscape single-ad unit: fixed-size image on the left (roughly 400x250, no rounded corners), text block vertically centered on the right with a bold sans-serif headline, a lighter-weight provider line, and a solid black rectangular CTA button below. Here is the CSS:\n\n' + REF_CSS_3 }
+        ]
+      },
+      {
+        role: 'user',
+        parts: [
+          { text: 'Here is a FOURTH REFERENCE EXAMPLE — a 2-column card grid with a large bold heading ABOVE the whole grid, and a small faint Dianomi logo bottom-right. Pay close attention to how the heading spans the FULL WIDTH above the cards rather than sitting inline with the first card — this is the .line2 width:100% technique.' },
+          { inline_data: { mime_type: 'image/png', data: REF_IMAGE_4 } }
+        ]
+      },
+      {
+        role: 'model',
+        parts: [
+          { text: 'I see a 2-column horizontal grid: large bold "Sponsored Content" heading spanning the full width above all cards, cards below in 2 columns each with image-above-text, small faint Dianomi logo bottom-right. The heading must have width:100% and flex-shrink:0 so it does not get squeezed into the card row. Here is the CSS:\n\n' + REF_CSS_4 }
+        ]
+      },
+      {
+        role: 'user',
+        parts: [
+          { text: 'Here is a FIFTH REFERENCE EXAMPLE — a decorative two-line heading (large serif title + smaller italic script subtitle) and a list layout where the provider/brand name appears as a full-width label ABOVE the image and description, not beside them. Study how the heading uses a pseudo-element for the second line, and how the provider breaks out of the normal text column using the display:contents grid technique.' },
+          { inline_data: { mime_type: 'image/png', data: REF_IMAGE_5 } }
+        ]
+      },
+      {
+        role: 'model',
+        parts: [
+          { text: 'I see a decorative multi-line heading — large serif "GIFT GUIDE" title with a smaller italic script "for Him" subtitle beneath it, rendered via a ::after pseudo-element since Header Html only supports one text string. Below, each item has the brand name as a full-width label above a thumbnail+description row, achieved by making .text { display:contents } so .dianomi_provider_short can occupy its own grid row while .maintext sits beside the image. Here is the CSS:\n\n' + REF_CSS_5 }
         ]
       },
       {
