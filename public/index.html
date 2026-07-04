@@ -569,7 +569,7 @@ function rebuildHeaderFromToggles() {
   var opts = getHeaderToggleState();
   setHeader(buildHeaderHtml(opts));
   if (opts.line2) ensureLine2Styling();
-  if (opts.action) ensureActionStyling();
+  syncActionStyling(opts.action);
   // Auto-expand Header Html section so the code change is visible
   if(!SEC.header) toggleSec('header');
   if(cmHeaderReady && cmHeader) cmHeader.refresh();
@@ -594,18 +594,37 @@ function ensureLine2Styling() {
   setTimeout(scrollCSSToBottomAndFlash, 50);
 }
 
-// Several presets have .action { display: none; } as a baseline default (button hidden
-// unless a subtype uses it). If the "Read More" toggle is turned ON, the Header Html fill
-// script populates .action with text, but if CSS still says display:none, nothing visibly
-// changes even though the DOM content exists. Detect this and flip to a real button style.
-function ensureActionStyling() {
+// .action is a FIXED DOM element — part of .text's unchangeable structure — that always
+// exists regardless of the "Read More" toggle. The toggle only controls whether Header
+// Html's script fills it with text. This means CSS styling must be kept in sync BOTH ways:
+// when toggled ON, flip a hidden .action to a real visible button; when toggled OFF, flip
+// it back to hidden — otherwise you get an empty black box once the text is removed but
+// the button styling remains applied to nothing.
+var VISIBLE_ACTION_CSS = '.action {\n  display: inline-block;\n  width: fit-content;\n  padding: 10px 24px;\n  background: #000;\n  color: #fff;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 13px;\n  font-weight: 600;\n  cursor: pointer;\n  border: none;\n  margin-top: 10px;\n}';
+var HIDDEN_ACTION_CSS = '.action {\n  display: none;\n}';
+
+function syncActionStyling(shouldBeVisible) {
   var css = getCSS();
-  var hiddenActionRegex = /\.action\s*\{\s*display:\s*none\s*;?\s*\}/;
-  if (!hiddenActionRegex.test(css)) return; // either already styled, or no .action rule at all (leave as-is)
+  // Match any single .action { ... } rule regardless of its current contents
+  var actionRuleRegex = /\.action\s*\{[^}]*\}/;
 
-  var defaultAction = '.action {\n  display: inline-block;\n  width: fit-content;\n  padding: 10px 24px;\n  background: #000;\n  color: #fff;\n  font-family: \'Roboto\', sans-serif;\n  font-size: 13px;\n  font-weight: 600;\n  cursor: pointer;\n  border: none;\n  margin-top: 10px;\n}';
+  if (!actionRuleRegex.test(css)) {
+    // No .action rule exists at all yet — only add one if we need it visible;
+    // if hidden is the desired state and there's no rule, the button already
+    // won't render meaningfully without content, so nothing to do.
+    if (shouldBeVisible) {
+      css += '\n\n' + VISIBLE_ACTION_CSS;
+      setCSS(css);
+      setTimeout(scrollCSSToBottomAndFlash, 50);
+    }
+    return;
+  }
 
-  css = css.replace(hiddenActionRegex, defaultAction);
+  var currentlyVisible = !/display:\s*none/.test(css.match(actionRuleRegex)[0]);
+  if (currentlyVisible === shouldBeVisible) return; // already in the correct state, no-op
+
+  var replacement = shouldBeVisible ? VISIBLE_ACTION_CSS : HIDDEN_ACTION_CSS;
+  css = css.replace(actionRuleRegex, replacement);
   setCSS(css);
   setTimeout(scrollCSSToBottomAndFlash, 50);
 }
