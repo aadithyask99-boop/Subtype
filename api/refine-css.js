@@ -42,7 +42,7 @@ STRICT RULES:
 - These rules are always required regardless of feedback:
   - .text { position: static !important }
   - .dianomi_provider_short { display: block !important }
-  - span.line2 { display: none }
+  - .text .line2 { display: none }
   - .heading_top, .dianomiHeading.heading { display: none }
   - Never use float, display:table, or duplicate selector declarations
   - Use .hero img not .dianomihref img
@@ -55,7 +55,7 @@ STRICT RULES:
 WHY THESE RULES EXIST (so you apply them correctly, not just mechanically):
 - .dianomi_provider_short needs !important because Dianomi injects style="display:inline" on it at runtime, which beats a plain class rule
 - .text needs position:static !important because Dianomi's JS sometimes sets position:absolute on it after page load, breaking flex layouts
-- span.line2 (JS-injected "Advertisement" text) and div.line2 (the real heading label like "Sponsored Content") share a class name but are different elements — hiding one without qualifying the selector accidentally hides both
+- .text .line2 (JS-injected "Advertisement" text) and div.line2 (the real heading label like "Sponsored Content") share a class name but are different elements — hiding one without qualifying the selector accidentally hides both
 - .sub-line2 (the Dianomi logo) is a sibling of .hero, not inside it — .hero img is always safe from accidentally targeting the logo
 - Full-width borders on .hero need negative-margin breakout when .wrapper has padding, because a border-bottom on .hero only spans the padded content width otherwise
 

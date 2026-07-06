@@ -126,7 +126,7 @@ This HTML is fixed. You cannot add, remove or reorder elements. CSS is the only 
 | `.dianomi-yac` | Your Ad Choices icon | List units only. Sits inline next to logo. |
 | `div.line2` | **Unit heading label** | e.g. "Around the web", "Sponsored Content". **STYLE THIS. NEVER HIDE IT.** |
 | `.line2 .title` | Inner span of heading | Style via `.line2 .title { }` |
-| `span.line2` | JS-injected "Advertisement" per-item | **ALWAYS `display:none !important`**. Different from div.line2. |
+| `.text .line2` | JS-injected "Advertisement" per-item | **ALWAYS `display:none !important`**. Different from div.line2. |
 | `.hero` | Individual ad slot | Repeats N times. |
 | `.hero.first` | First slot | No top border/margin needed. |
 | `.hero.last` | Last slot | No bottom border. Also has `.dianomi_branded` on multi-ad. |
@@ -152,7 +152,7 @@ This HTML is fixed. You cannot add, remove or reorder elements. CSS is the only 
 
 3. **`.dianomi_provider_short` must always have `display:block !important`** — Dianomi injects `style="display:inline"` on this element at runtime, overriding your CSS unless you use `!important`.
 
-4. **`span.line2` must always be `display:none`** — This is the JS-injected "Advertisement" text that appears per item. It is NOT the unit heading. Never show it.
+4. **`.text .line2` must always be `display:none`** — This is the JS-injected "Advertisement" text that appears per item. It is NOT the unit heading. Never show it.
 
 5. **`div.line2` must NEVER be hidden** — This is the real heading label set in Header Html. Style it. If the screenshot shows "Around the web" or "Sponsored Content" at the top of the unit, that's `.line2`.
 
@@ -372,7 +372,7 @@ body {
 }
 
 .heading_top, .dianomiHeading.heading { display: none; }
-span.line2 { display: none; }
+.text .line2 { display: none; }
 
 .dianomi_provider_short {
   font-family: 'Roboto', sans-serif;
@@ -477,7 +477,7 @@ body {
 }
 
 .heading_top, .dianomiHeading.heading { display: none; }
-span.line2 { display: none; }
+.text .line2 { display: none; }
 
 /* Element order = text,provider for this unit */
 .maintext {
@@ -576,7 +576,7 @@ body {
 
 .text { position: static !important; }
 
-span.line2 { display: none; }
+.text .line2 { display: none; }
 .heading_top, .dianomiHeading.heading { display: none; }
 
 .maintext {
@@ -631,11 +631,11 @@ Both `img` and `.text` live inside `a.dianomihref`, making it the flex container
 
 **Why discovered:** Initially tried setting `order` on `.hero` children but nothing changed. DevTools showed the actual parent of both `img` and `.text` is the anchor tag (`a.dianomihref`), not `.hero`. The flex `order` only works on direct children of a flex container.
 
-### `span.line2` vs `div.line2` — critical distinction
+### `.text .line2` vs `div.line2` — critical distinction
 - `div.line2` with `<span class="title">` inside → unit heading label set in Header Html (e.g. "Around the web", "Sponsored Content") → **ALWAYS STYLE THIS, NEVER HIDE IT**
-- `span.line2` → injected by Dianomi JS before each `.maintext` saying "Advertisement" → **ALWAYS `display:none`**
+- `.text .line2` → injected by Dianomi JS before each `.maintext` saying "Advertisement" → **ALWAYS `display:none`**
 
-**Why this causes bugs:** Both have the class `line2` but they are completely different elements with different purposes. Writing `.line2 { display:none }` without the element qualifier hides BOTH — including the real heading label — which was a recurring mistake. Always qualify: `span.line2 { display:none }` (hide) and `div.line2 { }` (style).
+**Why this causes bugs:** Both have the class `line2` but they are completely different elements with different purposes. Writing `.line2 { display:none }` without the element qualifier hides BOTH — including the real heading label — which was a recurring mistake. Always qualify: `.text .line2 { display:none }` (hide) and `div.line2 { }` (style).
 
 ### `.sub-line2` is NOT inside `.hero`
 The Dianomi logo/attribution block (`.sub-line2`) is a direct child of `.wrapper`, sitting as a sibling before all `.hero` elements. This means:
@@ -823,6 +823,13 @@ Cleaner than repeating full selector chains for every ID:
 :is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) .text { padding-left: 320px; }
 ```
 
+**CRITICAL — `#dianomi_ad_N` and `.hero` are THE SAME ELEMENT, not parent/child:**
+```html
+<div id="dianomi_ad_1" class="hero first">...</div>
+```
+This means `:is(#dianomi_ad_1, #dianomi_ad_2) .hero img` is BROKEN and will never match anything — it searches for a `.hero` element nested INSIDE `#dianomi_ad_1`, but there is no such nested element, since `#dianomi_ad_1` already IS the `.hero`. Always write `:is(#dianomi_ad_1, #dianomi_ad_2) img` (drop `.hero` entirely) when combining with an ID selector — the ID already narrows to that specific hero, so `.hero` is redundant AND syntactically wrong as a descendant. This is a real bug that has caused silent selector failures — always double check when writing `:is(#dianomi_ad...)` combined with any class that the specific `.hero`/`.subhero` normally implies, since the ID already covers that scope.
+Correct: `:is(#dianomi_ad_1, #dianomi_ad_2) .dianomihref` and `:is(#dianomi_ad_1, #dianomi_ad_2) .text` are FINE because `.dianomihref` and `.text` are genuinely nested descendants of `.hero`, not the same element as it.
+
 ### Individual slot sizing for asymmetric/magazine grids
 Not every `.hero` in a grid needs to be the same size. Override specific slots by ID:
 ```css
@@ -936,6 +943,27 @@ Notice mobile here isn't "the same 4-column grid but smaller" — it's a complet
 ### Recognising device-specific intent in feedback
 Phrases like "on mobile," "on tablet," "on phone," "at [breakpoint]px," "when it's smaller," "on desktop but different on mobile" signal the person wants tier-specific treatment, not uniform scaling. When you see this language, write distinct rules per breakpoint rather than one generic `@media` block that only adjusts a couple of font-sizes. Ask yourself: would someone looking at only the mobile view recognise it as a *deliberately designed* mobile experience, or does it look like the desktop version just got smaller? Aim for the former.
 
+### CRITICAL — resetting multi-zone/magazine layouts for mobile consistency
+If the desktop CSS has DIFFERENT custom image sizes per zone via ID selectors (e.g. a featured slot at 300px wide, a grid zone at 33% width images, a compact list zone with 80px thumbnails — see Patterns G, H, I), simply adding `.hero { flex:1 1 100% }` and `.hero img { width:100% }` at your mobile breakpoint is NOT enough. Each zone's ID-specific image rule (e.g. `:is(#dianomi_ad_5, #dianomi_ad_6) img { width: 80px }`) still has equal or higher specificity and will often continue to apply, producing an inconsistent mix of image sizes stacked vertically on mobile — some full width, some still tiny 80px thumbnails floating oddly in a single column.
+
+**The fix: at your mobile breakpoint, add ONE consistency-reset rule that targets ALL possible ad slot IDs together and forces every image back to the same predictable size**, overriding any zone-specific desktop sizing:
+
+```css
+@media (max-width: 480px) {
+  :is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9, #dianomi_ad_10) img {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16/10 !important;
+  }
+  :is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9, #dianomi_ad_10) {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+}
+```
+
+List enough IDs to cover the actual number of ads in the unit (check Num Ads context). The `!important` here is justified as an exception to the normal rule against overusing it — this is specifically resetting potentially many different desktop-only per-zone overrides back to ONE predictable mobile default, and without it the cascade order between zone-specific rules and the mobile reset becomes unpredictable. Always include this reset whenever the desktop CSS has more than one distinct image size defined by ID.
+
 ---
 
 ## TYPE ID → LAYOUT GUIDANCE
@@ -1000,7 +1028,7 @@ Write selectors in this sequence, with a blank line between each numbered group.
 9. Provider — `.dianomi_provider_short` (+ `::before` if it needs a prefix label)
 10. Headline — `.maintext`
 11. CTA — `.action`
-12. Always-hidden — `.heading_top`, `.dianomiHeading.heading`, `span.line2`
+12. Always-hidden — `.heading_top`, `.dianomiHeading.heading`, `.text .line2`
 13. Hover states, if relevant — `.hero img:hover`, `.maintext:hover`
 14. `@media` queries (Responsive mode only — omit entirely for IAB Fixed unless a genuine small-viewport fallback is needed)
 
@@ -1117,7 +1145,7 @@ body {
   color: #666;
 }
 
-span.line2 { display: none; }
+.text .line2 { display: none; }
 .heading_top, .dianomiHeading.heading { display: none; }
 .action { display: none; }
 ```
@@ -1140,7 +1168,7 @@ The failing pattern (DO NOT USE):
 ```css
 /* WRONG — conflicts with global column rule, order becomes ambiguous */
 :is(#dianomi_ad_4...) .dianomihref { flex-direction: row; }
-:is(#dianomi_ad_4...) .hero img { order: 2; }
+:is(#dianomi_ad_4...) img { order: 2; }
 :is(#dianomi_ad_4...) .text { order: 1; }
 ```
 
@@ -1148,7 +1176,7 @@ The correct pattern:
 ```css
 /* RIGHT — row-reverse puts img on right, text on left, no order needed */
 :is(#dianomi_ad_4...) .dianomihref { display: flex; flex-direction: row-reverse; gap: 12px; align-items: flex-start; }
-:is(#dianomi_ad_4...) .hero img { flex-shrink: 0; width: 80px; height: 60px; object-fit: cover; }
+:is(#dianomi_ad_4...) img { flex-shrink: 0; width: 80px; height: 60px; object-fit: cover; }
 :is(#dianomi_ad_4...) .text { flex: 1; min-width: 0; position: static !important; }
 ```
 
@@ -1178,7 +1206,7 @@ Full pattern:
   color: inherit;
 }
 
-:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) .hero img {
+:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) img {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
@@ -1210,7 +1238,7 @@ Full pattern:
   color: inherit;
 }
 
-:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) .hero img {
+:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) img {
   flex-shrink: 0;
   width: 80px;
   height: 60px;
@@ -1269,7 +1297,7 @@ The diamond bullet `◆` before provider name is a common publisher style: use `
   color: inherit;
 }
 
-:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8) .hero img {
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8) img {
   order: 2;
   flex-shrink: 0;
   width: 70px;
@@ -1330,7 +1358,7 @@ Key technique: target individual slot IDs or ranges using `:is()`. Each "zone" i
   display: flex;
   flex-direction: column;
 }
-:is(#dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4) .hero img {
+:is(#dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4) img {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
@@ -1350,7 +1378,7 @@ Key technique: target individual slot IDs or ranges using `:is()`. Each "zone" i
   flex-direction: row;
   gap: 10px;
 }
-:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7) .hero img {
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7) img {
   flex-shrink: 0;
   width: 60px;
   height: 45px;
