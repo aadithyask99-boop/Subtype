@@ -13,11 +13,11 @@ function loadRefImage(filename) {
   return fs.readFileSync(filePath).toString('base64');
 }
 
-const REF_IMAGE_1 = loadRefImage('example-1-portrait-single.png');       // MarketWatch portrait single-ad
-const REF_IMAGE_2 = loadRefImage('example-2-list-300x600.png');          // Telegraph 5-item list 300x600
-const REF_IMAGE_3 = loadRefImage('example-3-landscape-970x250.png');     // Landscape single-ad with CTA button
-const REF_IMAGE_4 = loadRefImage('example-4-heading-grid.png');         // 2-col grid with full-width heading + underline logo
-const REF_IMAGE_5 = loadRefImage('example-5-gift-guide.png');           // Multi-line decorative heading + provider-as-label grid technique
+const REF_IMAGE_1 = loadRefImage('example-1-portrait-single.jpg');       // MarketWatch portrait single-ad
+const REF_IMAGE_2 = loadRefImage('example-2-list-300x600.jpg');          // Telegraph 5-item list 300x600
+const REF_IMAGE_3 = loadRefImage('example-3-landscape-970x250.jpg');     // Landscape single-ad with CTA button
+const REF_IMAGE_4 = loadRefImage('example-4-heading-grid.jpg');         // 2-col grid with full-width heading + underline logo
+const REF_IMAGE_5 = loadRefImage('example-5-gift-guide.jpg');           // Multi-line decorative heading + provider-as-label grid technique
 
 const REF_CSS_1 = `body {
   padding: 0;
@@ -487,7 +487,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'user',
         parts: [
           { text: SYSTEM_PROMPT + '\n\nHere is a REFERENCE EXAMPLE. This screenshot shows a single-ad portrait Dianomi unit. Study it, then I will show you the exact production CSS that recreates it.' },
-          { inline_data: { mime_type: 'image/png', data: REF_IMAGE_1 } }
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_1 } }
         ]
       },
       {
@@ -500,7 +500,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'user',
         parts: [
           { text: 'Here is a SECOND REFERENCE EXAMPLE — a 5-item list unit (300x600 right rail), thumbnail-left layout with a heading label at top. This CSS represents solid structural defaults for this layout family (spacing scale, thumbnail sizing, typography hierarchy) — treat it as a strong starting pattern to adapt, not a pixel-exact match to copy blindly.' },
-          { inline_data: { mime_type: 'image/png', data: REF_IMAGE_2 } }
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_2 } }
         ]
       },
       {
@@ -513,7 +513,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'user',
         parts: [
           { text: 'Here is a THIRD REFERENCE EXAMPLE — a landscape single-ad unit (970x250 style), image left at fixed size, headline+provider+button stacked right, black CTA button reading "Read More". Study the image sizing, the button styling, and the flex-row layout.' },
-          { inline_data: { mime_type: 'image/png', data: REF_IMAGE_3 } }
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_3 } }
         ]
       },
       {
@@ -526,7 +526,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'user',
         parts: [
           { text: 'Here is a FOURTH REFERENCE EXAMPLE — a 2-column card grid with a large bold heading ABOVE the whole grid, and a small faint Dianomi logo bottom-right. Pay close attention to how the heading spans the FULL WIDTH above the cards rather than sitting inline with the first card — this is the .line2 width:100% technique.' },
-          { inline_data: { mime_type: 'image/png', data: REF_IMAGE_4 } }
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_4 } }
         ]
       },
       {
@@ -539,7 +539,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'user',
         parts: [
           { text: 'Here is a FIFTH REFERENCE EXAMPLE — a decorative two-line heading (large serif title + smaller italic script subtitle) and a list layout where the provider/brand name appears as a full-width label ABOVE the image and description, not beside them. Study how the heading uses a pseudo-element for the second line, and how the provider breaks out of the normal text column using the display:contents grid technique.' },
-          { inline_data: { mime_type: 'image/png', data: REF_IMAGE_5 } }
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_5 } }
         ]
       },
       {
