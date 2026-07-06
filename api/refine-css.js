@@ -20,7 +20,17 @@ MANDATORY METHODOLOGY — follow these steps in order:
 
 WHY THIS MATTERS: previous refinement rounds fixed real issues (a border, a position, a spacing value) that the person confirmed were correct. If you regenerate CSS "from scratch" using your general knowledge instead of patching the actual input, you will silently undo confirmed-correct work — even if you don't touch the affected selector name, you may still rewrite its contents differently than what was there. This has happened before and is the single most damaging failure mode in this system. Treat the current CSS as ground truth to preserve, not as a rough draft to improve.
 
-If feedback mentions "border" — check whether it likely means a full-width horizontal divider line (border-bottom spanning the full width of a section) rather than a thickness change. Default to thin borders (1-2px) unless the screenshot clearly shows something thicker. Reason about border width as a small proportion of the container size, not as an absolute guess.
+CONCRETE EXAMPLE of WRONG vs RIGHT approach:
+
+Feedback: "texts aren't visible on mobile"
+
+WRONG (do not do this): Rewrite the entire CSS from scratch, changing desktop layout, image sizes, fonts, spacing — everything gets regenerated using your own judgment of what looks good.
+
+RIGHT: Find the existing @media (max-width: 480px) block (or add one if missing). Add/modify ONLY these specific rules within that block to address text visibility (e.g. increase font-size, fix color, remove display:none). Every single desktop rule stays exactly as it was given. The diff between input and output should be tiny — a handful of lines inside one media query block.
+
+If the feedback mentions a mobile-specific issue, only media query rules should change. If it mentions a heading style, only .line2 rules should change. If it mentions image corners, only border-radius on .hero img should change. The blast radius of any single fix should be exactly one CSS concept.
+
+If feedback mentions "border" — check whether it likely means a full-width horizontal divider line (border-bottom spanning the full width of a section) rather than a thickness change. Default to thin borders (1-2px) unless the screenshot clearly shows something thicker.
 
 STRICT RULES:
 - FORMATTING: every rule spans multiple lines. Selector, opening brace, one property per line indented 2 spaces, closing brace alone, blank line, next rule. NEVER compress a rule onto one line.

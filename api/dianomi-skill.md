@@ -1016,3 +1016,358 @@ Write selectors in this sequence, with a blank line between each numbered group.
 - Aim for 40-60 rules total
 
 Output ONLY valid CSS.
+
+---
+
+## LAYOUT PATTERN F: INLINE / CONTEXTUAL SINGLE-AD BANNER
+
+Used for: in-article units, contextual placements, news-feed embedded ads
+Characteristics: image left (~120px wide, fixed), headline centre, provider right-aligned, very wide unit
+
+```css
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  box-sizing: border-box;
+  background: #f5f5f5;
+}
+
+.wrapper {
+  width: 100%;
+  background: #f5f5f5;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.hero {
+  width: 100%;
+}
+
+.dianomihref {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.hero img {
+  flex-shrink: 0;
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+}
+
+.text {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  position: static !important;
+}
+
+.maintext {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.3;
+  flex: 1;
+  padding-right: 24px;
+}
+
+.dianomi_provider_short {
+  display: block !important;
+  font-size: 13px;
+  font-weight: 400;
+  color: #666;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dianomi_provider_short::before {
+  content: "Ad by ";
+  color: #666;
+}
+
+span.line2 { display: none; }
+.heading_top, .dianomiHeading.heading { display: none; }
+.action { display: none; }
+```
+
+---
+
+## LAYOUT PATTERN G: HYBRID GRID + REVERSED LIST (text-left, thumbnail-right)
+
+Used for: FT-style units with a prominent top grid and compact list below
+The reversed list (text on left, thumbnail on RIGHT) is achieved by ordering `.dianomihref` children: `.text` comes first in DOM (provider,text element order), then `img` after — or by using flex with `img { order: 2 }`.
+
+```css
+.wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+/* TOP ZONE: Large image grid — first N heroes */
+:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) {
+  width: 33.33%;
+  float: left;
+  box-sizing: border-box;
+  padding: 0 12px 24px 0;
+}
+
+:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) .dianomihref {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+}
+
+:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) .hero img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  margin-bottom: 12px;
+}
+
+:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) .maintext {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #1a1a1a;
+}
+
+/* BOTTOM ZONE: Reversed list (text left, thumbnail right) */
+:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) {
+  width: 33.33%;
+  float: left;
+  box-sizing: border-box;
+  padding: 12px 12px 12px 0;
+  border-top: 1px solid #e0e0e0;
+  clear: none;
+}
+
+:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) .dianomihref {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+
+:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6) .hero img {
+  order: 2;
+  flex-shrink: 0;
+  width: 80px;
+  height: 60px;
+  object-fit: cover;
+}
+
+:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6) .text {
+  order: 1;
+  flex: 1;
+  position: static !important;
+}
+```
+
+---
+
+## LAYOUT PATTERN H: ASYMMETRIC MAGAZINE (2 large columns + 1 list column)
+
+Used for: publisher units mixing editorial and native styles — e.g. Image 3 above (ADVERTISEMENT)
+The diamond bullet `◆` before provider name is a common publisher style: use `::before { content: '◆ '; }`.
+
+```css
+.wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  position: relative;
+}
+
+/* LEFT ZONE: 2-column large cards */
+:is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4) {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 16px 24px 0;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 24px;
+}
+
+/* RIGHT ZONE: compact list, small thumbnail far right */
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8) {
+  flex: 0 0 280px;
+  padding-left: 16px;
+  border-left: 1px solid #e0e0e0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 16px;
+}
+
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8) .dianomihref {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8) .hero img {
+  order: 2;
+  flex-shrink: 0;
+  width: 70px;
+  height: 52px;
+  object-fit: cover;
+}
+
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8) .text {
+  order: 1;
+  flex: 1;
+  position: static !important;
+}
+
+.dianomi_provider_short::before {
+  content: '◆ ';
+  font-size: 8px;
+  vertical-align: middle;
+  color: #999;
+}
+```
+
+---
+
+## LAYOUT PATTERN I: MAGAZINE / MULTI-ZONE (different layout per slot group)
+
+Used for: complex publisher units where different sections use completely different patterns
+Key technique: target individual slot IDs or ranges using `:is()`. Each "zone" is a group of heroes.
+
+```css
+/* Zone 1: Featured large first card */
+#dianomi_ad_1 {
+  width: 100%;
+  margin-bottom: 24px;
+}
+#dianomi_ad_1 .dianomihref {
+  display: flex;
+  flex-direction: column;
+}
+#dianomi_ad_1 .hero img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  margin-bottom: 12px;
+}
+#dianomi_ad_1 .maintext {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* Zone 2: 3-column image grid */
+:is(#dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4) {
+  float: left;
+  width: 33.33%;
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+:is(#dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4) .dianomihref {
+  display: flex;
+  flex-direction: column;
+}
+:is(#dianomi_ad_2, #dianomi_ad_3, #dianomi_ad_4) .hero img {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  margin-bottom: 8px;
+}
+
+/* Zone 3: compact thumbnail-left list */
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7) {
+  float: left;
+  width: 33.33%;
+  padding: 8px 16px 8px 0;
+  border-top: 1px solid #e0e0e0;
+  box-sizing: border-box;
+}
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7) .dianomihref {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+:is(#dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7) .hero img {
+  flex-shrink: 0;
+  width: 60px;
+  height: 45px;
+  object-fit: cover;
+}
+```
+
+---
+
+## THE DIANOMI LOGO — TWO VARIANTS
+
+There are two completely different Dianomi attribution marks, and the CSS must handle them differently.
+
+**Variant 1: Small "D" icon** (`.sub-line2 img.dianomi-lg`)
+The standard Dianomi watermark — a small "D" icon typically 15-20px wide, positioned absolute.
+```css
+.sub-line2 {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 1;
+}
+.sub-line2 img.dianomi-lg {
+  width: 16px;
+  height: auto;
+  opacity: 0.6;
+}
+```
+This is what you see in Image 1 (far right) and Image 5 (small "D" next to "Sponsored Content").
+
+**Variant 2: Full "Dianomi" wordmark** (seen in Image 3 top-right)
+This is NOT the standard `.sub-line2` block. It is the Dianomi logo image at full size, typically placed in Header Html as an absolutely-positioned block:
+```css
+.sub-line2 {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+}
+.sub-line2 img.dianomi-lg {
+  width: 80px;  /* Much wider — full wordmark */
+  height: auto;
+  opacity: 1;
+}
+```
+When you see the full "Dianomi" text/logo prominently displayed (not a tiny icon), use a wider `.sub-line2 img.dianomi-lg` width in that range.
+
+**Key insight for screenshot analysis:** The small "D" icon and the full "Dianomi" wordmark look completely different but use the same CSS selector. Always check which one the screenshot shows and set `width` accordingly — 14-20px for the small D icon, 60-100px for the full wordmark.
+
+---
+
+## PRESERVING WORKING CSS DURING REFINE — CRITICAL RULE
+
+When given feedback to fix something specific, the rule is: **copy the entire current CSS verbatim, then make the minimum change needed, then stop**. Do not improve, reorganize, simplify, or "clean up" anything not mentioned in the feedback. This is the single most damaging failure mode — a request to fix text visibility on mobile should result in one or two new mobile breakpoint rules being added/modified, not a full rewrite that changes the desktop layout.
+
+Specific example: if feedback says "texts aren't visible on mobile," the correct response is:
+1. Preserve every existing rule exactly
+2. Add or modify only the `@media (max-width: 480px)` section to adjust text color/size/visibility
+3. Leave the desktop layout completely untouched
+
+Never regenerate CSS from the screenshot again when refining — use the current CSS as your ground truth and patch only what was asked.
+
