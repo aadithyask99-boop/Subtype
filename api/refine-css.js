@@ -47,6 +47,7 @@ STRICT RULES:
   - Never use float, display:table, or duplicate selector declarations
   - Use .hero img not .dianomihref img
   - For horizontal card grids: .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } and .line2 { width:100%; flex-shrink:0 }
+  - For text-LEFT thumbnail-RIGHT layouts: use flex-direction:row-reverse on .dianomihref — NEVER use order:1/order:2 on .text and .hero img as this creates specificity conflicts with any global .dianomihref rule
   - For inline/banner units: .sub-line2 needs top:50%; transform:translateY(-50%) to vertically centre the logo — do NOT remove or change transform values unless feedback explicitly asks to reposition the logo
   - Pseudo-elements (::before, ::after) are fine for decorative marks
   - Group multiple ID overrides with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains

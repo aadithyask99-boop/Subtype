@@ -480,7 +480,8 @@ FINAL REMINDERS before you write (these are the most commonly missed rules):
 - Use .hero img, never .dianomihref img.
 - Use .dianomihref (short form), never .subhero a.dianomihref.
 - If cards sit side by side in a row, use .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } — do not default to column.
-- CRITICAL — if .wrapper is flex-direction:row AND a heading (div.line2) is present: div.line2 is a sibling of .hero inside .wrapper, so without an explicit width it will sit INLINE next to the first cards instead of spanning above them as a heading. You MUST add .line2 { width:100%; flex-shrink:0; } whenever .wrapper uses flex-direction:row. Skipping this is the single most common visible bug in this system — the heading squeezes into the card row instead of sitting above it. Check this every time a heading and a horizontal grid appear together.
+- CRITICAL — if .wrapper is flex-direction:row AND a heading (div.line2) is present: div.line2 is a sibling of .hero inside .wrapper, so without an explicit width it will sit INLINE next to the first cards instead of spanning above them as a heading. You MUST add .line2 { width:100%; flex-shrink:0; } whenever .wrapper uses flex-direction:row.
+- CRITICAL — for text-LEFT, thumbnail-RIGHT layouts: NEVER use order:1/order:2 on .text and .hero img. This creates specificity conflicts with global rules. Instead use flex-direction:row-reverse on .dianomihref — this physically puts img (first in DOM) on the right and .text (second in DOM) on the left with no order properties needed.
 - Group repeated ID selectors with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains.
 - No CSS comments, no markdown fences.
 

@@ -1129,23 +1129,46 @@ Note: `.wrapper` needs `padding-right: 48px` (not just `16px`) to prevent `.main
 ## LAYOUT PATTERN G: HYBRID GRID + REVERSED LIST (text-left, thumbnail-right)
 
 Used for: FT-style units with a prominent top grid and compact list below
-The reversed list (text on left, thumbnail on RIGHT) is achieved by ordering `.dianomihref` children: `.text` comes first in DOM (provider,text element order), then `img` after — or by using flex with `img { order: 2 }`.
+
+**CRITICAL TECHNIQUE EXPLANATION — this is where most failures happen:**
+
+The DOM order inside `.dianomihref` is always: `img` first, `.text` second.
+- For image-left-text-right: `flex-direction: row` — natural DOM order, no `order` needed
+- For text-left-image-right: DO NOT use `order: 2` on `img` with `flex-direction: row` — this creates a specificity conflict when a global `.dianomihref { flex-direction: column }` rule exists, because `order` means different things in row vs column flex. Instead use **`flex-direction: row-reverse`** on `.dianomihref` — this physically flips the children so img (first in DOM) appears on the right and .text (second in DOM) appears on the left, with no `order` properties needed at all. It avoids the specificity conflict entirely.
+
+The failing pattern (DO NOT USE):
+```css
+/* WRONG — conflicts with global column rule, order becomes ambiguous */
+:is(#dianomi_ad_4...) .dianomihref { flex-direction: row; }
+:is(#dianomi_ad_4...) .hero img { order: 2; }
+:is(#dianomi_ad_4...) .text { order: 1; }
+```
+
+The correct pattern:
+```css
+/* RIGHT — row-reverse puts img on right, text on left, no order needed */
+:is(#dianomi_ad_4...) .dianomihref { display: flex; flex-direction: row-reverse; gap: 12px; align-items: flex-start; }
+:is(#dianomi_ad_4...) .hero img { flex-shrink: 0; width: 80px; height: 60px; object-fit: cover; }
+:is(#dianomi_ad_4...) .text { flex: 1; min-width: 0; position: static !important; }
+```
+
+Full pattern:
 
 ```css
 .wrapper {
   width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  flex-direction: row;
+  flex-wrap: wrap;
   position: relative;
 }
 
 /* TOP ZONE: Large image grid — first N heroes */
 :is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) {
-  width: 33.33%;
-  float: left;
+  flex: 1 1 calc(33.33% - 16px);
   box-sizing: border-box;
-  padding: 0 12px 24px 0;
+  padding: 0 16px 24px 0;
+  min-width: 0;
 }
 
 :is(#dianomi_ad_1, #dianomi_ad_2, #dianomi_ad_3) .dianomihref {
@@ -1169,37 +1192,34 @@ The reversed list (text on left, thumbnail on RIGHT) is achieved by ordering `.d
   color: #1a1a1a;
 }
 
-/* BOTTOM ZONE: Reversed list (text left, thumbnail right) */
+/* BOTTOM ZONE: Reversed list (text left, thumbnail RIGHT) */
 :is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) {
-  width: 33.33%;
-  float: left;
+  flex: 1 1 calc(33.33% - 16px);
   box-sizing: border-box;
-  padding: 12px 12px 12px 0;
+  padding: 12px 16px 12px 0;
   border-top: 1px solid #e0e0e0;
-  clear: none;
+  min-width: 0;
 }
 
 :is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) .dianomihref {
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+  flex-direction: row-reverse;
   align-items: flex-start;
   gap: 12px;
   text-decoration: none;
   color: inherit;
 }
 
-:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6) .hero img {
-  order: 2;
+:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) .hero img {
   flex-shrink: 0;
   width: 80px;
   height: 60px;
   object-fit: cover;
 }
 
-:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6) .text {
-  order: 1;
+:is(#dianomi_ad_4, #dianomi_ad_5, #dianomi_ad_6, #dianomi_ad_7, #dianomi_ad_8, #dianomi_ad_9) .text {
   flex: 1;
+  min-width: 0;
   position: static !important;
 }
 ```
