@@ -18,6 +18,8 @@ const REF_IMAGE_2 = loadRefImage('example-2-list-300x600.jpg');          // Tele
 const REF_IMAGE_3 = loadRefImage('example-3-landscape-970x250.jpg');     // Landscape single-ad with CTA button
 const REF_IMAGE_4 = loadRefImage('example-4-heading-grid.jpg');         // 2-col grid with full-width heading + underline logo
 const REF_IMAGE_5 = loadRefImage('example-5-gift-guide.jpg');           // Multi-line decorative heading + provider-as-label grid technique
+const REF_IMAGE_6 = loadRefImage('example-6-ft-hybrid-grid.jpg');       // FT-style 3-column grid, serif heading top-left
+const REF_IMAGE_7 = loadRefImage('example-7-multizone-magazine.jpg');   // Multi-zone magazine (PAID PARTNER CONTENT style)
 
 const REF_CSS_1 = `body {
   padding: 0;
@@ -383,6 +385,10 @@ const REF_CSS_4 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height
 
 const REF_CSS_5 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height: auto;\n  overflow: visible;\n  box-sizing: border-box;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%;\n  background: #fff;\n  padding: 24px 20px;\n  box-sizing: border-box;\n  display: flex;\n  flex-direction: column;\n  position: relative;\n}\n\n.line2 {\n  text-align: center;\n  padding-bottom: 16px;\n  margin-bottom: 20px;\n  border-bottom: 1px dashed #ccc;\n}\n\n.line2 .title {\n  display: block;\n  font-family: \'Playfair Display\', serif;\n  font-size: 34px;\n  letter-spacing: 2px;\n  text-transform: uppercase;\n  color: #1a1a1a;\n}\n\n.line2 .title::after {\n  content: \'for Him\';\n  display: block;\n  font-family: \'Dancing Script\', cursive;\n  font-style: italic;\n  font-size: 22px;\n  margin-top: 4px;\n  color: #1a1a1a;\n}\n\n.sub-line2 {\n  position: absolute;\n  bottom: 12px;\n  right: 12px;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 16px;\n  height: auto;\n  opacity: 0.5;\n}\n\n.hero {\n  width: 100%;\n  box-sizing: border-box;\n}\n\n.hero:not(.last) {\n  border-bottom: 1px dashed #ccc;\n  padding-bottom: 16px;\n  margin-bottom: 16px;\n}\n\n.dianomihref {\n  display: grid;\n  grid-template-columns: 90px 1fr;\n  grid-template-areas:\n    "label label"\n    "image text";\n  column-gap: 14px;\n  row-gap: 8px;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  grid-area: image;\n  width: 100%;\n  height: auto;\n  object-fit: cover;\n}\n\n.text {\n  display: contents;\n}\n\n.heading_top, .dianomiHeading.heading {\n  display: none;\n}\n\nspan.line2 {\n  display: none;\n}\n\n.dianomi_provider_short {\n  grid-area: label;\n  display: block !important;\n  font-family: \'Playfair Display\', serif;\n  font-size: 13px;\n  font-weight: 700;\n  letter-spacing: 1px;\n  text-transform: uppercase;\n  color: #1a1a1a;\n}\n\n.dianomi_provider_short::after {\n  content: \'\';\n  display: block;\n  width: 32px;\n  height: 1px;\n  background: #1a1a1a;\n  margin-top: 6px;\n}\n\n.maintext {\n  grid-area: text;\n  font-size: 14px;\n  line-height: 1.5;\n  color: #333;\n}\n\n.action {\n  display: none;\n}`;
 
+const REF_CSS_6 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height: auto;\n  overflow: visible;\n  box-sizing: border-box;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%;\n  background: #fff;\n  padding: 20px 0;\n  box-sizing: border-box;\n  display: flex;\n  flex-direction: row;\n  flex-wrap: wrap;\n  position: relative;\n}\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: Georgia, \'Times New Roman\', serif;\n  font-size: 28px;\n  font-weight: 700;\n  color: #1a1a1a;\n  margin-bottom: 20px;\n  display: block;\n}\n\n.line2 .title {\n  font: inherit;\n}\n\n.sub-line2 {\n  position: absolute;\n  top: 20px;\n  right: 0;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 16px;\n  height: auto;\n  display: block;\n  opacity: 0.5;\n}\n\n.hero {\n  flex: 1 1 calc(33.33% - 16px);\n  min-width: 0;\n  box-sizing: border-box;\n  margin-bottom: 24px;\n}\n\n.hero:not(:nth-child(3n+2)) {\n  padding-right: 20px;\n}\n\n.dianomihref {\n  display: flex;\n  flex-direction: column;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  width: 100%;\n  aspect-ratio: 16/9;\n  object-fit: cover;\n  display: block;\n  margin-bottom: 12px;\n}\n\n.text {\n  position: static !important;\n  display: flex;\n  flex-direction: column;\n}\n\n.heading_top, .dianomiHeading.heading {\n  display: none;\n}\n\nspan.line2 {\n  display: none;\n}\n\n.maintext {\n  font-family: Georgia, \'Times New Roman\', serif;\n  font-size: 18px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n  display: block;\n  margin-bottom: 6px;\n}\n\n.dianomi_provider_short {\n  font-family: Arial, sans-serif;\n  font-size: 13px;\n  font-weight: 400;\n  color: #666;\n  display: block !important;\n}\n\n.action {\n  display: none;\n}\n\n@media (max-width: 768px) {\n  .hero {\n    flex: 1 1 calc(50% - 10px);\n  }\n}\n\n@media (max-width: 480px) {\n  .hero {\n    flex: 1 1 100%;\n    padding-right: 0;\n  }\n\n  .hero img {\n    aspect-ratio: 16/10;\n  }\n}`;
+
+const REF_CSS_7 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height: auto;\n  overflow: visible;\n  box-sizing: border-box;\n  background: #f2f2f2;\n}\n\n.wrapper {\n  width: 100%;\n  background: #f2f2f2;\n  padding: 16px;\n  box-sizing: border-box;\n  display: flex;\n  flex-direction: row;\n  flex-wrap: wrap;\n  gap: 16px;\n  position: relative;\n}\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: Arial, sans-serif;\n  font-size: 11px;\n  font-weight: 700;\n  color: #333;\n  text-transform: uppercase;\n  letter-spacing: 1px;\n  margin-bottom: 4px;\n  display: block;\n  border-left: 3px solid #333;\n  padding-left: 8px;\n}\n\n.line2 .title {\n  font: inherit;\n}\n\n.sub-line2 {\n  position: absolute;\n  top: 16px;\n  right: 16px;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 60px;\n  height: auto;\n  display: block;\n}\n\n.hero {\n  flex: 1 1 calc(33.33% - 11px);\n  min-width: 0;\n  box-sizing: border-box;\n  background: #fff;\n}\n\n.dianomihref {\n  display: flex;\n  flex-direction: column;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  width: 100%;\n  aspect-ratio: 16/10;\n  object-fit: cover;\n  display: block;\n}\n\n.text {\n  position: static !important;\n  display: flex;\n  flex-direction: column;\n  padding: 12px;\n}\n\n.heading_top, .dianomiHeading.heading {\n  display: none;\n}\n\nspan.line2 {\n  display: none;\n}\n\n.dianomi_provider_short {\n  font-family: Arial, sans-serif;\n  font-size: 11px;\n  font-weight: 700;\n  color: #888;\n  display: block !important;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 6px;\n}\n\n.maintext {\n  font-family: Arial, sans-serif;\n  font-size: 16px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n  display: block;\n}\n\n.action {\n  display: none;\n}\n\n@media (max-width: 768px) {\n  .hero {\n    flex: 1 1 calc(50% - 8px);\n  }\n}\n\n@media (max-width: 480px) {\n  .wrapper {\n    gap: 10px;\n  }\n\n  .hero {\n    flex: 1 1 100%;\n  }\n}`;
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -466,10 +472,10 @@ Before writing any CSS, look carefully at the screenshot and work through these 
 8. Background and dividers — is there a background colour other than white? Are there visible border lines between items, and what colour/weight?
 9. Provider position relative to image — is the provider name inline with/beside the headline (normal case), OR does it appear as a separate label ABOVE both the image and headline (e.g. a brand name spanning the full card width, with the image and description below it)? If the latter, this requires the display:contents grid-breakout technique from your instructions — .text alone cannot achieve this because .dianomi_provider_short and .maintext are both trapped inside it by default.
 
-Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the five reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
+Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the seven reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
 
 FINAL REMINDERS before you write (these are the most commonly missed rules):
-- Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the five reference examples above.
+- Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the seven reference examples above.
 - Each selector appears EXACTLY ONCE in your output.
 - Use .hero img, never .dianomihref img.
 - Use .dianomihref (short form), never .subhero a.dianomihref.
@@ -546,6 +552,32 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'model',
         parts: [
           { text: 'I see a decorative multi-line heading — large serif "GIFT GUIDE" title with a smaller italic script "for Him" subtitle beneath it, rendered via a ::after pseudo-element since Header Html only supports one text string. Below, each item has the brand name as a full-width label above a thumbnail+description row, achieved by making .text { display:contents } so .dianomi_provider_short can occupy its own grid row while .maintext sits beside the image. Here is the CSS:\n\n' + REF_CSS_5 }
+        ]
+      },
+      {
+        role: 'user',
+        parts: [
+          { text: 'Here is a SIXTH REFERENCE EXAMPLE — a 3-column grid with a large bold serif heading spanning full width above all cards. Each card has a full-width 16:9 image, bold serif headline below, small grey provider below that. Note the heading font is large and serif, very different from the small caps utility labels in other units.' },
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_6 } }
+        ]
+      },
+      {
+        role: 'model',
+        parts: [
+          { text: 'I see a 3-column grid with a prominent large serif "Sponsored Content" heading spanning full width (width:100%; flex-shrink:0 — critical to prevent it sitting inline with the first card). Each card has a full 16:9 image, bold serif headline, small grey provider. Serif font family throughout. Here is the CSS:\n\n' + REF_CSS_6 }
+        ]
+      },
+      {
+        role: 'user',
+        parts: [
+          { text: 'Here is a SEVENTH REFERENCE EXAMPLE — a multi-zone magazine layout on a grey background. Cards sit on white backgrounds. Small ALL-CAPS heading with a left border accent. Full Dianomi wordmark top-right (wide logo, not the small D icon). Provider label is small, uppercased, grey, above the headline. Study the card background color, the label style, and the logo variant carefully.' },
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_7 } }
+        ]
+      },
+      {
+        role: 'model',
+        parts: [
+          { text: 'I see a magazine layout: grey wrapper background, white card backgrounds, small ALL-CAPS heading with a left border accent, full Dianomi wordmark (wide, ~60px) top-right at full opacity. Provider is small, uppercase, grey, sitting ABOVE the headline (element order: provider first, then maintext). Here is the CSS:\n\n' + REF_CSS_7 }
         ]
       },
       {
