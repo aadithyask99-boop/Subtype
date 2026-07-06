@@ -503,6 +503,10 @@ function convertToResponsiveLocal(css){
 
   var isGrid = /\.wrapper\s*\{[^}]*flex-direction:\s*row/.test(stripped);
   var isRowCard = /\.dianomihref\s*\{[^}]*flex-direction:\s*row/.test(stripped);
+  // Banner layout: .text has row + space-between (inline/contextual unit)
+  var isBanner = isRowCard && /\.text\s*\{[^}]*flex-direction:\s*row/.test(stripped);
+  // Detect vertical-centred sub-line2 (banner logo technique)
+  var hasCentredLogo = /\.sub-line2\s*\{[^}]*transform\s*:\s*translateY/.test(stripped);
 
   var rules768 = ['  .wrapper {\n    padding: 14px;\n  }'];
   var rules480 = ['  .wrapper {\n    padding: 12px;\n  }'];
@@ -512,7 +516,18 @@ function convertToResponsiveLocal(css){
     rules480.push('  .hero {\n    flex: 1 1 100%;\n  }');
   }
 
-  if (isRowCard) {
+  if (isBanner) {
+    // Banner-specific mobile: stack image above text, collapse text to column,
+    // reset logo from vertically-centred to bottom-right since card is now taller
+    rules480.push('  .dianomihref {\n    flex-direction: column;\n    align-items: flex-start;\n  }');
+    rules480.push('  .hero img {\n    width: 100%;\n    height: auto;\n    margin-bottom: 10px;\n  }');
+    rules480.push('  .text {\n    flex-direction: column;\n    align-items: flex-start;\n    gap: 6px;\n  }');
+    rules480.push('  .maintext {\n    padding-right: 0;\n  }');
+    if (hasCentredLogo) {
+      // Logo can no longer be vertically centred in a now-tall stacked card
+      rules480.push('  .sub-line2 {\n    top: auto;\n    bottom: 10px;\n    right: 12px;\n    transform: none;\n  }');
+    }
+  } else if (isRowCard) {
     rules480.push('  .dianomihref {\n    flex-direction: column;\n  }');
     rules480.push('  .hero img {\n    width: 100%;\n    height: auto;\n  }');
   }

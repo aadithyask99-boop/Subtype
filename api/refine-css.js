@@ -37,7 +37,7 @@ STRICT RULES:
 - Output the COMPLETE corrected CSS, not just the changed parts
 - Each selector appears EXACTLY ONCE — no duplicate declarations
 - No CSS comments, no markdown fences, no backticks
-- Keep everything that was already correct, only fix what the feedback describes
+- SELECTOR PRESERVATION: if feedback says "fix mobile text positioning" — you touch ONLY rules inside @media blocks. If it says "fix logo overlap" — you touch ONLY .sub-line2. You do NOT touch .text, .maintext, .dianomihref, .wrapper, or any other selector just because you think they might also be relevant. The minimum viable change wins every time. A selector not mentioned in the feedback must appear in your output with IDENTICAL content to the input.
 - Write selectors in this order: body, .wrapper, attribution (.sub-line2/.dianomi-wt), heading (.line2), slots (.hero), card anchor (.dianomihref), image (.hero img), text (.text), provider (.dianomi_provider_short), headline (.maintext), CTA (.action), always-hidden elements, media queries
 - These rules are always required regardless of feedback:
   - .text { position: static !important }
@@ -46,9 +46,8 @@ STRICT RULES:
   - .heading_top, .dianomiHeading.heading { display: none }
   - Never use float, display:table, or duplicate selector declarations
   - Use .hero img not .dianomihref img
-  - Use .dianomihref not .subhero a.dianomihref
-  - For horizontal card grids: .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } and .line2 { width:100%; flex-shrink:0 } — WITHOUT width:100% the heading sits inline next to the first cards instead of above the whole grid. If feedback says a heading is squeezed next to images instead of sitting above them, this is almost always the fix.
-  - Visual reorder of provider/headline can be done with flex order on .text if needed — .text { display:flex; flex-direction:column } .text .dianomi_provider_short{order:1} .text .maintext{order:2}
+  - For horizontal card grids: .wrapper { display:flex; flex-direction:row; flex-wrap:wrap } and .line2 { width:100%; flex-shrink:0 }
+  - For inline/banner units: .sub-line2 needs top:50%; transform:translateY(-50%) to vertically centre the logo — do NOT remove or change transform values unless feedback explicitly asks to reposition the logo
   - Pseudo-elements (::before, ::after) are fine for decorative marks
   - Group multiple ID overrides with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains
 
