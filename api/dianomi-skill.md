@@ -1024,6 +1024,9 @@ Output ONLY valid CSS.
 Used for: in-article units, contextual placements, news-feed embedded ads
 Characteristics: image left (~120px wide, fixed), headline centre, provider right-aligned, very wide unit
 
+**CRITICAL LOGO POSITIONING NOTE for this pattern:**
+`.sub-line2` (the small "D" icon) must appear to float on the SAME horizontal axis as the "Ad by Provider" text, at the far right of the card. It should NOT sit at the bottom of the wrapper (which is what happens with `position:absolute; bottom:0`). The correct approach: `position:absolute; right:16px; top:50%; transform:translateY(-50%)` — this vertically centres the "D" icon within the card height, putting it level with the provider text that appears in `.text`. Without `transform:translateY(-50%)` the icon will be misaligned. This is the most common failure point in this layout pattern — always use vertical centering here.
+
 ```css
 body {
   margin: 0;
@@ -1037,12 +1040,28 @@ body {
 
 .wrapper {
   width: 100%;
-  background: #f5f5f5;
-  padding: 12px 16px;
+  background: #fff;
+  border-radius: 4px;
+  padding: 12px 48px 12px 16px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+.sub-line2 {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.sub-line2 img.dianomi-lg {
+  width: 16px;
+  height: auto;
+  display: block;
+  opacity: 0.5;
 }
 
 .hero {
@@ -1063,6 +1082,7 @@ body {
   width: 120px;
   height: 80px;
   object-fit: cover;
+  border-radius: 2px;
 }
 
 .text {
@@ -1101,6 +1121,8 @@ span.line2 { display: none; }
 .heading_top, .dianomiHeading.heading { display: none; }
 .action { display: none; }
 ```
+
+Note: `.wrapper` needs `padding-right: 48px` (not just `16px`) to prevent `.maintext` or `.dianomi_provider_short` from overlapping with the absolutely-positioned `.sub-line2` icon at the far right edge.
 
 ---
 
@@ -1318,45 +1340,38 @@ Key technique: target individual slot IDs or ranges using `:is()`. Each "zone" i
 
 ---
 
-## THE DIANOMI LOGO — TWO VARIANTS
+## THE DIANOMI LOGO — TWO VARIANTS + ALIGNMENT PATTERNS
 
 There are two completely different Dianomi attribution marks, and the CSS must handle them differently.
 
 **Variant 1: Small "D" icon** (`.sub-line2 img.dianomi-lg`)
 The standard Dianomi watermark — a small "D" icon typically 15-20px wide, positioned absolute.
-```css
-.sub-line2 {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  z-index: 1;
-}
-.sub-line2 img.dianomi-lg {
-  width: 16px;
-  height: auto;
-  opacity: 0.6;
-}
-```
-This is what you see in Image 1 (far right) and Image 5 (small "D" next to "Sponsored Content").
 
-**Variant 2: Full "Dianomi" wordmark** (seen in Image 3 top-right)
-This is NOT the standard `.sub-line2` block. It is the Dianomi logo image at full size, typically placed in Header Html as an absolutely-positioned block:
-```css
-.sub-line2 {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 1;
-}
-.sub-line2 img.dianomi-lg {
-  width: 80px;  /* Much wider — full wordmark */
-  height: auto;
-  opacity: 1;
-}
-```
-When you see the full "Dianomi" text/logo prominently displayed (not a tiny icon), use a wider `.sub-line2 img.dianomi-lg` width in that range.
+The correct `position:absolute` values depend on WHERE it visually appears relative to the card content:
 
-**Key insight for screenshot analysis:** The small "D" icon and the full "Dianomi" wordmark look completely different but use the same CSS selector. Always check which one the screenshot shows and set `width` accordingly — 14-20px for the small D icon, 60-100px for the full wordmark.
+- **Bottom-right of the whole unit** (most common for multi-ad lists, grid units):
+  `bottom: 12px; right: 12px;`
+
+- **Top-right of the whole unit** (some grid units with heading):
+  `top: 16px; right: 16px;`
+
+- **Vertically centred at far right of a single-row card** (inline/banner units — image left, text right):
+  `right: 16px; top: 50%; transform: translateY(-50%);`
+  This is the most commonly missed positioning. When the screenshot shows the "D" sitting on the SAME horizontal baseline as the provider text (not above or below), use vertical centering. Without `transform:translateY(-50%)` it will be misaligned.
+  Also add `padding-right: 48px` to `.wrapper` to prevent content overlapping the icon.
+
+```css
+/* Standard bottom-right */
+.sub-line2 { position: absolute; bottom: 12px; right: 12px; z-index: 1; }
+
+/* Vertically centred (banner/inline units) */
+.sub-line2 { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); z-index: 1; }
+
+.sub-line2 img.dianomi-lg { width: 16px; height: auto; display: block; opacity: 0.5; }
+```
+
+**Variant 2: Full "Dianomi" wordmark**
+A wider logo image (~80-100px) at full opacity, typically positioned top-right. Use `width: 80px` and `opacity: 1` on `.sub-line2 img.dianomi-lg`. When you see the full "Dianomi" text/logo prominently displayed (not a tiny icon), use this variant.
 
 ---
 
