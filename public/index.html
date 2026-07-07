@@ -650,6 +650,65 @@ function mergeBreakpointResult(originalCss, geminiOutputCss, tier, px, forceWidt
   }
 }
 
+// ─────────────────────────────────────────────
+// UNIT TYPE — top-level so both DOMContentLoaded click handlers AND
+// applyBreakpointReference (also top-level) can both call these directly.
+// Previously these lived inside the DOMContentLoaded closure, which made them
+// invisible to applyBreakpointReference — causing "setUnitTypeUI is not defined".
+// ─────────────────────────────────────────────
+var unitTypeChangedSinceGen = false;
+
+function setUnitTypeUI(type){
+  if(S.unitType !== type) unitTypeChangedSinceGen = true;
+  S.unitType = type;
+  document.querySelectorAll('#unit-type-btns .btn, #unit-type-btns-refine .btn, #unit-type-btns-refine-2 .btn').forEach(function(b){
+    b.classList.toggle('active', b.dataset.unittype === type);
+  });
+}
+
+function applyUnitTypePreset(newType){
+  if(getCSS().trim().length === 0){
+    return;
+  }
+  if(newType === 'custom'){
+    // No-op — Custom means "leave whatever curated per-breakpoint CSS is already
+    // here alone", it exists specifically so pressing this never destroys anything.
+    var s0 = document.getElementById('refine-status');
+    if(s0) s0.textContent = 'Custom mode — existing per-breakpoint CSS preserved as-is.';
+    unitTypeChangedSinceGen = false;
+    return;
+  }
+
+  var trackedPx = Object.keys(bpTrackedPxValues);
+  var protectedBlocks = trackedPx.map(function(px){ return extractMediaBlock(getCSS(), px); }).filter(Boolean);
+
+  if(newType === 'iab'){
+    var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
+    // Re-insert any curated breakpoint blocks that got stripped, so hand-crafted
+    // per-breakpoint work from reference images is never silently destroyed
+    if(protectedBlocks.length){
+      convertedIAB = convertedIAB.trim() + '\n\n' + protectedBlocks.join('\n\n');
+    }
+    setCSS(convertedIAB);
+    schedRender();
+    var s1 = document.getElementById('refine-status');
+    if(s1) s1.textContent = '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
+  } else {
+    var convertedResp = convertToResponsiveLocal(getCSS());
+    if(protectedBlocks.length){
+      // Remove any generic duplicate the local converter may have built at the same px,
+      // then re-insert the curated version so it isn't overridden by a generic one
+      trackedPx.forEach(function(px){ convertedResp = removeMediaBlock(convertedResp, px); });
+      convertedResp = convertedResp.trim() + '\n\n' + protectedBlocks.join('\n\n');
+    }
+    setCSS(convertedResp);
+    schedRender();
+    var s2 = document.getElementById('refine-status');
+    if(s2) s2.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
+  }
+  unitTypeChangedSinceGen = false;
+}
+
 function convertToResponsiveLocal(css){
   // Start clean — strip any existing media queries first
   var stripped = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
@@ -1573,59 +1632,6 @@ window.addEventListener('DOMContentLoaded',function(){
     document.querySelectorAll('#prov-btns .btn').forEach(function(b){b.classList.remove('active');});
     btn.classList.add('active');schedRender();
   });
-
-  var unitTypeChangedSinceGen = false;
-
-  function setUnitTypeUI(type){
-    if(S.unitType !== type) unitTypeChangedSinceGen = true;
-    S.unitType = type;
-    document.querySelectorAll('#unit-type-btns .btn, #unit-type-btns-refine .btn, #unit-type-btns-refine-2 .btn').forEach(function(b){
-      b.classList.toggle('active', b.dataset.unittype === type);
-    });
-  }
-
-  function applyUnitTypePreset(newType){
-    if(getCSS().trim().length === 0){
-      return;
-    }
-    if(newType === 'custom'){
-      // No-op — Custom means "leave whatever curated per-breakpoint CSS is already
-      // here alone", it exists specifically so pressing this never destroys anything.
-      var s0 = document.getElementById('refine-status');
-      if(s0) s0.textContent = 'Custom mode — existing per-breakpoint CSS preserved as-is.';
-      unitTypeChangedSinceGen = false;
-      return;
-    }
-
-    var trackedPx = Object.keys(bpTrackedPxValues);
-    var protectedBlocks = trackedPx.map(function(px){ return extractMediaBlock(getCSS(), px); }).filter(Boolean);
-
-    if(newType === 'iab'){
-      var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
-      // Re-insert any curated breakpoint blocks that got stripped, so hand-crafted
-      // per-breakpoint work from reference images is never silently destroyed
-      if(protectedBlocks.length){
-        convertedIAB = convertedIAB.trim() + '\n\n' + protectedBlocks.join('\n\n');
-      }
-      setCSS(convertedIAB);
-      schedRender();
-      var s1 = document.getElementById('refine-status');
-      if(s1) s1.textContent = '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
-    } else {
-      var convertedResp = convertToResponsiveLocal(getCSS());
-      if(protectedBlocks.length){
-        // Remove any generic duplicate the local converter may have built at the same px,
-        // then re-insert the curated version so it isn't overridden by a generic one
-        trackedPx.forEach(function(px){ convertedResp = removeMediaBlock(convertedResp, px); });
-        convertedResp = convertedResp.trim() + '\n\n' + protectedBlocks.join('\n\n');
-      }
-      setCSS(convertedResp);
-      schedRender();
-      var s2 = document.getElementById('refine-status');
-      if(s2) s2.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
-    }
-    unitTypeChangedSinceGen = false;
-  }
 
   document.getElementById('unit-type-btns').addEventListener('click',function(e){
     var btn=e.target.closest('[data-unittype]');if(!btn)return;
