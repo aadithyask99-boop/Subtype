@@ -322,6 +322,7 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
               <div style="margin-top:4px;font-size:10px;color:var(--text-dim);">Also supports Ctrl+V paste</div>
             </div>
             <img class="modal-preview" id="modal-preview">
+            <textarea id="gen-note" placeholder="Optional context for Gemini, e.g. 'there are 10 Dianomi ad slots in this screenshot', 'this is a below-article unit'" style="width:100%;height:44px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:11px;padding:6px 8px;border-radius:4px;resize:vertical;outline:none;box-sizing:border-box;margin-top:8px;display:none;"></textarea>
             <div class="gen-status" id="gen-status"></div>
             <button class="modal-generate" id="modal-generate" style="width:100%;padding:7px;margin-top:8px;" disabled>Generate CSS</button>
           </div>
@@ -332,6 +333,7 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
               <img id="refine-thumb" style="width:120px;height:75px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--border);">
               <div style="flex:1;font-size:10px;color:var(--text-dim);line-height:1.5;">Compare preview with reference. Describe what needs fixing and hit Refine.<br><span style="color:var(--success);" id="refine-round-label"></span></div>
             </div>
+            <button class="btn" id="upload-new-btn" style="width:100%;font-size:10px;">⬆ Upload a different reference screenshot</button>
             <div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
               <span style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;">Unit Type</span>
               <div class="bg" id="unit-type-btns-refine-2">
@@ -362,12 +364,19 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
                   <button class="btn" data-bp="custom">Custom</button>
                 </div>
                 <input type="number" id="bp-custom-px" placeholder="Breakpoint width in px" style="display:none;width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:11px;padding:6px 8px;border-radius:4px;outline:none;margin-bottom:8px;box-sizing:border-box;">
+                <div style="font-size:10px;color:var(--text-dim);margin-bottom:4px;">Unit size AT this breakpoint (optional — leave blank to keep current size)</div>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                  <input type="number" id="bp-width" placeholder="Width" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:11px;padding:6px 7px;border-radius:4px;outline:none;">
+                  <span style="color:var(--text-dim);font-size:11px;">×</span>
+                  <input type="number" id="bp-height" placeholder="Height" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:11px;padding:6px 7px;border-radius:4px;outline:none;">
+                  <span style="color:var(--text-dim);font-size:10px;">px</span>
+                </div>
                 <div class="drop-zone" id="bp-drop-zone" style="margin-bottom:8px;padding:16px 8px;">
                   <input type="file" id="bp-file-input" accept="image/*">
                   <div style="font-size:11px;">Drop image or <strong>click to upload</strong></div>
                 </div>
                 <img id="bp-preview" style="display:none;max-width:100%;max-height:120px;border-radius:4px;margin-bottom:8px;">
-                <textarea id="bp-note" placeholder="Optional note, e.g. 'hide the description text at this size'" style="width:100%;height:44px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:11px;padding:6px 8px;border-radius:4px;resize:vertical;outline:none;box-sizing:border-box;margin-bottom:8px;"></textarea>
+                <textarea id="bp-note" placeholder="Optional note, e.g. 'hide the description text at this size', 'only show one ad slot, hide the rest'" style="width:100%;height:44px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:11px;padding:6px 8px;border-radius:4px;resize:vertical;outline:none;box-sizing:border-box;margin-bottom:8px;"></textarea>
                 <div style="font-size:10px;color:var(--success);min-height:14px;" id="bp-status"></div>
                 <button class="modal-generate" id="bp-apply-btn" style="width:100%;padding:7px;" disabled>Apply to this breakpoint</button>
               </div>
@@ -410,6 +419,7 @@ var renderTimer=null, currentBlob=null;
 var pendingImageBase64=null, pendingMimeType='image/png';
 var refineRound=0;
 var lastGenWidthPx=970, lastGenHeightPx=250;
+var refineFeedbackHistory=[]; // tracks what was asked in each round, so Gemini has literal context, not just the resulting CSS
 
 // ─────────────────────────────────────────────
 // IMAGES
@@ -510,6 +520,75 @@ function stripCssComments(css){
 // judgement about what looked right in the original design, which regex can't
 // safely infer. Use the Refine box afterward for font/spacing fine-tuning.
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// DETERMINISTIC BREAKPOINT SCOPE ENFORCEMENT
+// Prompt instructions alone are not a hard guarantee — Gemini has touched things
+// outside the requested scope before. These functions make the boundary a technical
+// fact: we extract ONLY the relevant piece from Gemini's output and splice it into
+// the ORIGINAL untouched CSS, silently discarding anything else it changed.
+// ─────────────────────────────────────────────
+
+// Extract the exact @media (max-width: {px}px) { ... } block, including nested braces.
+function extractMediaBlock(css, px){
+  var marker = '@media (max-width: ' + px + 'px)';
+  var idx = css.indexOf(marker);
+  if(idx === -1) return null;
+  // Find the opening brace of this @media block
+  var braceStart = css.indexOf('{', idx);
+  if(braceStart === -1) return null;
+  // Walk forward counting braces to find the matching close
+  var depth = 0;
+  for(var i = braceStart; i < css.length; i++){
+    if(css[i] === '{') depth++;
+    if(css[i] === '}'){
+      depth--;
+      if(depth === 0){
+        return css.substring(idx, i + 1);
+      }
+    }
+  }
+  return null; // malformed, unmatched braces
+}
+
+// Remove a specific @media (max-width: {px}px) block from css, if present.
+function removeMediaBlock(css, px){
+  var block = extractMediaBlock(css, px);
+  if(!block) return css;
+  return css.replace(block, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// Strip ALL @media blocks from css, returning only the base/unconditional rules.
+function stripAllMediaBlocks(css){
+  return css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// The core guarantee: merge Gemini's output into the ORIGINAL css, using ONLY the
+// portion that was actually in-scope for this breakpoint request. Everything else
+// comes from the original, untouched, regardless of what Gemini's output contains.
+function mergeBreakpointResult(originalCss, geminiOutputCss, tier, px){
+  if(tier === 'desktop'){
+    // In-scope = base rules (outside any @media block).
+    // Take Gemini's new base rules, but keep every @media block from the ORIGINAL untouched.
+    var newBaseRules = stripAllMediaBlocks(geminiOutputCss);
+    var originalMediaBlocks = [];
+    var mediaRegex = /@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g;
+    var m;
+    while((m = mediaRegex.exec(originalCss)) !== null){
+      originalMediaBlocks.push(m[0]);
+    }
+    return newBaseRules + (originalMediaBlocks.length ? '\n\n' + originalMediaBlocks.join('\n\n') : '');
+  } else {
+    // In-scope = the one specific @media block for this px value.
+    var newBlock = extractMediaBlock(geminiOutputCss, px);
+    var base = removeMediaBlock(originalCss, px); // original with old version of this block (if any) stripped out
+    if(!newBlock){
+      // Gemini didn't produce a distinguishable block at this exact px — nothing safe to merge, keep original as-is
+      return originalCss;
+    }
+    return base + '\n\n' + newBlock;
+  }
+}
+
 function convertToResponsiveLocal(css){
   // Start clean — strip any existing media queries first
   var stripped = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
@@ -899,6 +978,7 @@ function resetUploadUI(){
 
 function switchToRefinePhase(){
   refineRound++;
+  refineFeedbackHistory=[]; // fresh generation = fresh context, old feedback doesn't apply to a new screenshot
   resetUploadUI();
   // Swap from upload state to refine state within the SAME panel
   document.getElementById('refine-no-image').style.display='none';
@@ -950,6 +1030,7 @@ function handleImageFile(file){
     pendingMimeType=result.mimeType;
     var preview=document.getElementById('modal-preview');
     preview.src=result.dataUrl;preview.style.display='block';
+    document.getElementById('gen-note').style.display='block';
     document.getElementById('modal-generate').disabled=false;
     document.getElementById('gen-status').textContent='Image ready ('+result.width+'×'+result.height+'px, ~'+result.sizeKB+'KB). Click Generate CSS.';
   });
@@ -991,7 +1072,8 @@ async function generateCSS(){
         widthPx: parseInt(document.getElementById('dim-width').value,10) || Math.round((S.widthPct/100)*MAX_W),
         heightPx: parseInt(document.getElementById('dim-height').value,10) || S.heightPx,
         unitType: S.unitType,
-        model: document.getElementById('gemini-model-refine').value
+        model: document.getElementById('gemini-model-refine').value,
+        userNote: document.getElementById('gen-note').value.trim()
       })
     });
 
@@ -1074,6 +1156,11 @@ async function refineCSS(){
 
   if(!feedback){ document.getElementById('refine-status').textContent='Please describe what needs fixing.'; return; }
 
+  // Track this round's feedback and send the last few rounds as literal history —
+  // currentCSS shows the RESULT of prior fixes, but not what was actually asked each time.
+  refineFeedbackHistory.push(feedback);
+  var recentHistory = refineFeedbackHistory.slice(-4, -1); // last 3 rounds, excluding this one
+
   var btn = document.getElementById('refine-btn');
   var status = document.getElementById('refine-status');
   btn.disabled=true; btn.textContent='Refining…';
@@ -1097,6 +1184,7 @@ async function refineCSS(){
         mimeType: pendingMimeType,
         currentCSS: getCSS(),
         feedback: feedback,
+        feedbackHistory: recentHistory,
         numAds: S.numAds,
         order: S.order,
         headerElements: getHeaderToggleState(),
@@ -1184,6 +1272,13 @@ async function applyBreakpointReference(){
   var customPx = parseInt(document.getElementById('bp-custom-px').value,10);
   var breakpointPx = tier==='custom' ? (customPx||480) : (tier==='desktop' ? null : parseInt(tier,10));
   var note = document.getElementById('bp-note').value.trim();
+  var bpWidth = parseInt(document.getElementById('bp-width').value,10) || null;
+  var bpHeight = parseInt(document.getElementById('bp-height').value,10) || null;
+
+  // Capture the ORIGINAL CSS before this call — this is what we merge back into,
+  // guaranteeing anything outside the target scope is preserved no matter what
+  // Gemini's raw output contains.
+  var originalCssBeforeCall = getCSS();
 
   var btn = document.getElementById('bp-apply-btn');
   var status = document.getElementById('bp-status');
@@ -1206,19 +1301,21 @@ async function applyBreakpointReference(){
       body: JSON.stringify({
         imageBase64: bpPendingImageBase64,
         mimeType: bpPendingMimeType,
-        currentCSS: getCSS(),
+        currentCSS: originalCssBeforeCall,
         feedback: note || 'Match this reference image exactly at this breakpoint.',
         numAds: S.numAds,
         order: S.order,
         headerElements: getHeaderToggleState(),
         logoPosition: getLogoPositionState(),
-        widthPx: lastGenWidthPx,
-        heightPx: lastGenHeightPx,
+        widthPx: bpWidth || lastGenWidthPx,
+        heightPx: bpHeight || lastGenHeightPx,
         unitType: S.unitType,
         round: refineRound,
         model: document.getElementById('gemini-model-refine-2').value,
         breakpointTier: tier,
-        breakpointPx: breakpointPx
+        breakpointPx: breakpointPx,
+        breakpointWidth: bpWidth,
+        breakpointHeight: bpHeight
       })
     });
 
@@ -1235,8 +1332,11 @@ async function applyBreakpointReference(){
     var reader = resp.body.getReader();
     var decoder = new TextDecoder();
     var cssBuffer = '';
-    status.textContent = 'Applying to this breakpoint…';
+    status.textContent = 'Receiving from Gemini…';
 
+    // Stream into a buffer only — do NOT write to the live editor mid-stream this time,
+    // since we need the deterministic merge step before showing anything, otherwise
+    // the person would see Gemini's unmerged (potentially out-of-scope) output flash by.
     while(true){
       var chunk = await reader.read();
       if(chunk.done) break;
@@ -1249,17 +1349,24 @@ async function applyBreakpointReference(){
           try{
             var json = JSON.parse(line.slice(6));
             var delta = json.choices&&json.choices[0]&&json.choices[0].delta&&json.choices[0].delta.content;
-            if(delta){ cssBuffer+=delta; setCSS(cssBuffer); }
+            if(delta){ cssBuffer+=delta; }
           }catch(e){}
         }
       }
     }
 
-    setCSS(stripCssComments(getCSS()));
+    var cleanOutput = stripCssComments(cssBuffer);
+
+    // THE GUARANTEE: merge only the in-scope portion of Gemini's output into the
+    // original CSS. Anything Gemini touched outside the requested breakpoint scope
+    // is silently discarded here, regardless of what it actually did.
+    var merged = mergeBreakpointResult(originalCssBeforeCall, cleanOutput, tier, breakpointPx);
+    setCSS(merged);
     schedRender();
+
     refineRound++;
     var tierLabel = tier==='desktop' ? 'Desktop' : (tier==='custom' ? breakpointPx+'px' : tier+'px');
-    status.textContent = '✓ Applied to '+tierLabel+' breakpoint';
+    status.textContent = '✓ Applied to '+tierLabel+' breakpoint — only that scope was changed';
     document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — check preview';
 
     // Reset the breakpoint uploader for the next one
@@ -1267,6 +1374,8 @@ async function applyBreakpointReference(){
     document.getElementById('bp-preview').style.display='none';
     document.getElementById('bp-note').value='';
     document.getElementById('bp-file-input').value='';
+    document.getElementById('bp-width').value='';
+    document.getElementById('bp-height').value='';
 
   } catch(e){
     clearTimeout(timeoutId);
@@ -1625,6 +1734,20 @@ window.addEventListener('DOMContentLoaded',function(){
     bpHandleImageFile(this.files[0]);
   });
   document.getElementById('bp-apply-btn').addEventListener('click',applyBreakpointReference);
+
+  document.getElementById('upload-new-btn').addEventListener('click',function(){
+    if(!confirm('Upload a different reference screenshot? This will let you generate fresh CSS from a new image — your current CSS stays in the editor until you click Generate.')) return;
+    pendingImageBase64=null;
+    document.getElementById('refine-has-image').style.display='none';
+    document.getElementById('refine-no-image').style.display='block';
+    document.getElementById('modal-preview').style.display='none';
+    document.getElementById('modal-preview').src='';
+    document.getElementById('gen-note').style.display='none';
+    document.getElementById('gen-note').value='';
+    document.getElementById('gen-status').textContent='';
+    document.getElementById('modal-generate').disabled=true;
+    document.getElementById('file-input').value='';
+  });
 
   // Paste support — only intercept when the upload dropzone is visible (no CSS generated yet)
   document.addEventListener('paste',function(e){

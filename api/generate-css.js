@@ -411,9 +411,14 @@ module.exports = async function handler(req, res) {
     widthPx = null,
     heightPx = null,
     unitType = 'iab',
-    model = 'gemini-2.5-flash'
+    model = 'gemini-2.5-flash',
+    userNote = ''
   } = req.body || {};
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
+
+  const userNoteBlock = userNote
+    ? `\n\nADDITIONAL CONTEXT FROM THE PERSON UPLOADING THIS SCREENSHOT:\n${userNote}\nTreat this as ground truth — e.g. if they say there are 10 ad slots, generate CSS assuming 10 slots even if you can only see a few in the visible screenshot area.`
+    : '';
 
   const selectedModel = ALLOWED_MODELS.includes(model) ? model : 'gemini-2.5-flash';
 
@@ -462,6 +467,7 @@ Context:
 - ${order === 'text,provider' ? 'Headline appears before provider name in DOM.' : 'Provider name appears before headline in DOM.'}
 
 Before writing any CSS, look carefully at the screenshot and work through these questions internally:
+0. LOCATE THE AD UNIT FIRST — the screenshot may be a tight crop of just the ad unit, OR a screenshot of an entire webpage with the Dianomi unit embedded somewhere within it. If the image shows navigation bars, article text, other unrelated content, or multiple distinct sections, this is a full-page capture — you must first locate the actual Dianomi unit within it before analysing anything else. Identify it by looking for: a heading label such as "Sponsored Content", "Advertisement", "Around the web", "Paid Content", "Paid Partner Content", or similar; AND/OR the Dianomi attribution mark (a small "D" icon, or the full "Dianomi" wordmark, usually near a corner of the unit). Once located, base your ENTIRE analysis (layout, typography, spacing, colours) only on that specific region — ignore the surrounding page content entirely. If you cannot confidently locate a distinct Dianomi unit in the image, proceed assuming the whole image is the unit.
 1. Layout family — which of the 5 patterns in your instructions does this match closest, or is it a hybrid?
 2. Count — exactly how many ad cards/items are visible?
 3. Heading — is there a unit-level label (div.line2)? DO NOT default to a generic small-caps grey label. Read its ACTUAL typography from the screenshot: font family (serif/script/sans), size, weight, colour, letter-spacing, alignment, any border/divider. If it has TWO visually distinct lines (e.g. a large title plus a smaller italic/script subtitle), use a pseudo-element (.line2 .title::after with content) to render the second line — see the "Multi-line headings" technique in your instructions. Never skip or simplify a heading just because it's more complex than the reference examples. If a horizontal card grid is also present (multiple cards side by side), remember div.line2 MUST get width:100% or it will sit inline next to the first cards instead of spanning above the whole grid — flag this now so you don't forget it when writing the CSS.
@@ -485,7 +491,7 @@ FINAL REMINDERS before you write (these are the most commonly missed rules):
 - Group repeated ID selectors with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains.
 - No CSS comments, no markdown fences.
 
-Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + domNote + dimensionNote;
+Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + domNote + dimensionNote + userNoteBlock;
 
   // Multi-turn few-shot: show real screenshot → real production CSS pairs before asking for the new one
   const geminiBody = {

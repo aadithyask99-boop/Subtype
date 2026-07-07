@@ -95,6 +95,7 @@ module.exports = async function handler(req, res) {
     mimeType = 'image/png',
     currentCSS = '',
     feedback = '',
+    feedbackHistory = [],
     numAds = 1,
     order = 'provider,text',
     headerElements = {},
@@ -105,11 +106,17 @@ module.exports = async function handler(req, res) {
     round = 1,
     model = 'gemini-2.5-flash',
     breakpointTier = null,
-    breakpointPx = null
+    breakpointPx = null,
+    breakpointWidth = null,
+    breakpointHeight = null
   } = req.body || {};
 
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
   if (!feedback) { return res.status(400).json({ error: 'feedback required' }); }
+
+  const historyNote = Array.isArray(feedbackHistory) && feedbackHistory.length > 0
+    ? `\n\nPREVIOUS ROUNDS OF FEEDBACK IN THIS SESSION (for context — these were already applied and are reflected in the current CSS below, but knowing what was asked helps you understand the person's intent and avoid undoing earlier decisions):\n${feedbackHistory.map((f, i) => `Round ${i + 1}: "${f}"`).join('\n')}`
+    : '';
 
   const selectedModel = ALLOWED_MODELS.includes(model) ? model : 'gemini-2.5-flash';
   const thinkingBudgetByModel = {
@@ -150,6 +157,10 @@ ${unitType === 'iab'
 - Action script (.action): ${headerElements.action ? 'PRESENT — fills .action with "Read More"' : 'NOT PRESENT'}
 ${dimensionNote}${logoNote}`;
 
+  const breakpointDimensionNote = breakpointWidth && breakpointHeight
+    ? `\n5. UNIT SIZE AT THIS BREAKPOINT: the unit must be ${breakpointWidth}×${breakpointHeight}px within this scope. Set .wrapper { width: ${breakpointWidth}px; max-width: 100%; height: auto; } (or min-height if content-driven) inside this specific scope only — do not apply this size outside the target scope.`
+    : '';
+
   const breakpointNote = breakpointTier
     ? `
 
@@ -163,6 +174,9 @@ Your task is NARROWER than a normal refine request:
 2. If tier is tablet/mobile/custom: modify ONLY the rules inside the @media (max-width: ${breakpointPx}px) block. If that exact media query does not exist yet in the current CSS, create it. Do NOT touch base/desktop rules. Do NOT touch any OTHER @media block (e.g. if this reference is for 480px, a separate 768px block must remain completely untouched).
 3. Every rule outside the scope described above — base rules if this is a breakpoint reference, or any @media block if this is a desktop reference — must appear in your output IDENTICAL to the input. Copy them verbatim.
 4. This is a stricter version of the general "preserve everything unrelated" rule — here the boundary is not just "selectors mentioned in feedback" but a specific, literal CSS scope (one media query OR the base rules). Treat anything outside that scope as completely off-limits, even if you think it could be improved.
+${breakpointDimensionNote}
+
+IF THE REFERENCE SHOWS FEWER AD SLOTS THAN THE FULL UNIT (e.g. "single ad" when the unit normally has multiple): hide the extra slots WITHIN THIS SCOPE ONLY using :is(#dianomi_ad_2, #dianomi_ad_3, ...) { display: none !important; } for whichever IDs should not show at this breakpoint — but this display:none rule must ALSO live inside the same scoped @media block (or base rules if desktop), never applied globally, since hiding slots at one breakpoint must not affect any other breakpoint.
 
 Think of this as patching one specific paint layer of a multi-layer design — you are not touching the other layers at all.
 ═══════════════════════════════════════════════════════════`
@@ -170,7 +184,7 @@ Think of this as patching one specific paint layer of a multi-layer design — y
 
   const userMessage = `This is refinement round ${round}.
 
-${domNote}${breakpointNote}
+${domNote}${breakpointNote}${historyNote}
 
 Num Ads: ${numAds}
 Element Order: ${order}
