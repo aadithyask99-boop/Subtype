@@ -1434,3 +1434,17 @@ Specific example: if feedback says "texts aren't visible on mobile," the correct
 
 Never regenerate CSS from the screenshot again when refining — use the current CSS as your ground truth and patch only what was asked.
 
+---
+
+## BREAKPOINT-SCOPED REFERENCE EDITS — WHY PLACEMENT PRECISION MATTERS
+
+When a refine request is scoped to one specific breakpoint (the tool tells you this explicitly when it happens — look for "BREAKPOINT-SCOPED REFERENCE" in the instructions), a downstream system extracts ONLY the content you write inside the target `@media` block (or only the base/non-media rules, if the target is desktop) and discards everything else in your output, even if you wrote other changes elsewhere with good intentions.
+
+This means: if you're asked to edit the `@media (max-width: 480px)` block and you write a dimension change like `.wrapper { width: 320px }` as a base-level rule outside that block — thinking it "should" apply everywhere — that change is silently thrown away. It will never reach the final CSS. Any property change relevant to the requested breakpoint (sizing, hiding elements, layout flips) must be written **inside** the specific `@media` block you were asked to edit, never outside it, even if the change conceptually feels global.
+
+## UNIT TYPE — THIRD STATE: "CUSTOM"
+
+Besides IAB Fixed and Responsive, there is a third Unit Type: **Custom**. This state means the unit has hand-curated CSS for one or more specific breakpoints built from real reference screenshots (not generated from a generic template). When Unit Type is Custom:
+- Do not assume standard 768px/480px breakpoints exist or should exist — the actual breakpoints in use may be non-standard (e.g. a designer-specified 540px tier)
+- Do not attempt to "normalize" or "clean up" the breakpoint structure into a standard IAB/Responsive pattern unless explicitly asked
+- Treat each existing `@media` block as intentional and precisely tuned from a real screenshot, not as a rough draft

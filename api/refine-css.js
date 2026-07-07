@@ -158,7 +158,7 @@ ${unitType === 'iab'
 ${dimensionNote}${logoNote}`;
 
   const breakpointDimensionNote = breakpointWidth && breakpointHeight
-    ? `\n5. UNIT SIZE AT THIS BREAKPOINT: the unit must be ${breakpointWidth}×${breakpointHeight}px within this scope. Set .wrapper { width: ${breakpointWidth}px; max-width: 100%; height: auto; } (or min-height if content-driven) inside this specific scope only — do not apply this size outside the target scope.`
+    ? `\n5. UNIT SIZE AT THIS BREAKPOINT: the unit must be ${breakpointWidth}×${breakpointHeight}px within this scope. Set .wrapper { width: ${breakpointWidth}px; max-width: 100%; height: auto; } (or min-height if content-driven) INSIDE the @media block itself, not as a base rule outside it. This placement matters: a system downstream extracts only what is literally written inside this specific media query and discards everything else you output, including anything you write as a base/global rule. If you place the width/height change outside this media query thinking it's more "correct" globally, it will be silently dropped and the dimension change will not apply at all. When in doubt, always nest dimension changes inside the media query you were asked to edit.`
     : '';
 
   const breakpointNote = breakpointTier

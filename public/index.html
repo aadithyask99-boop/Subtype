@@ -219,6 +219,7 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
   <div class="bg" id="unit-type-btns">
     <button class="btn active" data-unittype="iab">IAB Fixed</button>
     <button class="btn" data-unittype="responsive">Responsive</button>
+                <button class="btn" data-unittype="custom" title="Has custom per-breakpoint CSS from reference images - won't be touched by IAB/Responsive presets">Custom</button>
   </div>
   <div class="or">
     <span class="ol">Order</span>
@@ -306,6 +307,7 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
               <div class="bg" id="unit-type-btns-refine">
                 <button class="btn" data-unittype="iab">IAB Fixed</button>
                 <button class="btn" data-unittype="responsive">Responsive</button>
+                <button class="btn" data-unittype="custom" title="Has custom per-breakpoint CSS from reference images - won't be touched by IAB/Responsive presets">Custom</button>
               </div>
               <select class="psel mini-sel" id="gemini-model-refine" title="Gemini model" style="margin-left:auto;">
                 <option value="gemini-2.5-flash" selected>2.5 Flash</option>
@@ -339,6 +341,7 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
               <div class="bg" id="unit-type-btns-refine-2">
                 <button class="btn" data-unittype="iab">IAB Fixed</button>
                 <button class="btn" data-unittype="responsive">Responsive</button>
+                <button class="btn" data-unittype="custom" title="Has custom per-breakpoint CSS from reference images - won't be touched by IAB/Responsive presets">Custom</button>
               </div>
               <select class="psel mini-sel" id="gemini-model-refine-2" title="Model for Refine calls" style="margin-left:auto;">
                 <option value="gemini-2.5-flash" selected>2.5 Flash</option>
@@ -379,6 +382,10 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
                 <textarea id="bp-note" placeholder="Optional note, e.g. 'hide the description text at this size', 'only show one ad slot, hide the rest'" style="width:100%;height:44px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:11px;padding:6px 8px;border-radius:4px;resize:vertical;outline:none;box-sizing:border-box;margin-bottom:8px;"></textarea>
                 <div style="font-size:10px;color:var(--success);min-height:14px;" id="bp-status"></div>
                 <button class="modal-generate" id="bp-apply-btn" style="width:100%;padding:7px;" disabled>Apply to this breakpoint</button>
+              </div>
+              <div id="bp-gallery" style="display:none;margin-top:8px;padding:8px;background:var(--surface2);border-radius:6px;">
+                <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Applied Breakpoint References</div>
+                <div id="bp-gallery-items" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
               </div>
             </div>
 
@@ -565,11 +572,62 @@ function stripAllMediaBlocks(css){
 // The core guarantee: merge Gemini's output into the ORIGINAL css, using ONLY the
 // portion that was actually in-scope for this breakpoint request. Everything else
 // comes from the original, untouched, regardless of what Gemini's output contains.
-function mergeBreakpointResult(originalCss, geminiOutputCss, tier, px){
+// Force a .wrapper width/height override into a specific @media block, regardless
+// of whether Gemini placed its own version correctly. This removes reliance on the
+// model's placement accuracy for something purely mechanical.
+function forceDimensionInBlock(mediaBlockText, width, height){
+  if(!width && !height) return mediaBlockText;
+  var wrapperRuleRegex = /\.wrapper\s*\{[^}]*\}/;
+  var dims = [];
+  if(width) dims.push('  width: ' + width + 'px;', '  max-width: 100%;');
+  if(height) dims.push('  height: ' + height + 'px;');
+  var forcedRule = '.wrapper {\n' + dims.join('\n') + '\n}';
+
+  if(wrapperRuleRegex.test(mediaBlockText)){
+    // A .wrapper rule already exists in this block — merge dimensions into it,
+    // stripping any conflicting width/height/max-width the model already wrote
+    return mediaBlockText.replace(wrapperRuleRegex, function(match){
+      var inner = match.replace(/^\.wrapper\s*\{/, '').replace(/\}$/, '');
+      inner = inner.split(';').filter(function(decl){
+        var d = decl.trim();
+        if(!d) return false;
+        if(width && /^(width|max-width)\s*:/.test(d)) return false;
+        if(height && /^height\s*:/.test(d)) return false;
+        return true;
+      }).map(function(d){ return '  ' + d.trim() + ';'; }).join('\n');
+      return '.wrapper {\n' + inner + (inner ? '\n' : '') + dims.join('\n') + '\n}';
+    });
+  } else {
+    // No .wrapper rule in this block yet — insert one right after the opening brace
+    var braceIdx = mediaBlockText.indexOf('{');
+    return mediaBlockText.slice(0, braceIdx + 1) + '\n  ' + forcedRule.split('\n').join('\n  ') + '\n' + mediaBlockText.slice(braceIdx + 1);
+  }
+}
+
+function mergeBreakpointResult(originalCss, geminiOutputCss, tier, px, forceWidth, forceHeight){
   if(tier === 'desktop'){
     // In-scope = base rules (outside any @media block).
     // Take Gemini's new base rules, but keep every @media block from the ORIGINAL untouched.
     var newBaseRules = stripAllMediaBlocks(geminiOutputCss);
+    if(forceWidth || forceHeight){
+      var wrapperRegex = /\.wrapper\s*\{[^}]*\}/;
+      if(wrapperRegex.test(newBaseRules)){
+        newBaseRules = newBaseRules.replace(wrapperRegex, function(match){
+          var inner = match.replace(/^\.wrapper\s*\{/, '').replace(/\}$/, '');
+          inner = inner.split(';').filter(function(decl){
+            var d = decl.trim();
+            if(!d) return false;
+            if(forceWidth && /^(width|max-width)\s*:/.test(d)) return false;
+            if(forceHeight && /^height\s*:/.test(d)) return false;
+            return true;
+          }).map(function(d){ return '  ' + d.trim() + ';'; }).join('\n');
+          var extra = [];
+          if(forceWidth) extra.push('  width: ' + forceWidth + 'px;', '  max-width: 100%;');
+          if(forceHeight) extra.push('  height: ' + forceHeight + 'px;');
+          return '.wrapper {\n' + inner + (inner ? '\n' : '') + extra.join('\n') + '\n}';
+        });
+      }
+    }
     var originalMediaBlocks = [];
     var mediaRegex = /@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g;
     var m;
@@ -584,6 +642,9 @@ function mergeBreakpointResult(originalCss, geminiOutputCss, tier, px){
     if(!newBlock){
       // Gemini didn't produce a distinguishable block at this exact px — nothing safe to merge, keep original as-is
       return originalCss;
+    }
+    if(forceWidth || forceHeight){
+      newBlock = forceDimensionInBlock(newBlock, forceWidth, forceHeight);
     }
     return base + '\n\n' + newBlock;
   }
@@ -979,6 +1040,9 @@ function resetUploadUI(){
 function switchToRefinePhase(){
   refineRound++;
   refineFeedbackHistory=[]; // fresh generation = fresh context, old feedback doesn't apply to a new screenshot
+  bpTrackedPxValues={}; // fresh unit = no curated breakpoints yet
+  bpAppliedGallery=[];
+  renderBpGallery();
   resetUploadUI();
   // Swap from upload state to refine state within the SAME panel
   document.getElementById('refine-no-image').style.display='none';
@@ -1251,13 +1315,42 @@ async function refineCSS(){
 // unit should look at one screen size. Scoped strictly to that breakpoint's
 // CSS only — everything else in the stylesheet stays untouched.
 // ─────────────────────────────────────────────
-var bpPendingImageBase64=null, bpPendingMimeType='image/jpeg';
+var bpPendingImageBase64=null, bpPendingMimeType='image/jpeg', bpPendingDataUrl=null;
 var bpSelectedTier='desktop';
+var bpTrackedPxValues={}; // e.g. {480: true, 768: true} — media queries curated via breakpoint reference, protected from IAB/Responsive auto-conversion
+var bpAppliedGallery=[]; // {tier, px, dataUrl, width, height} — for visual review of what's been applied
+
+function renderBpGallery(){
+  var container = document.getElementById('bp-gallery');
+  var itemsEl = document.getElementById('bp-gallery-items');
+  if(bpAppliedGallery.length === 0){ container.style.display='none'; return; }
+  container.style.display='block';
+  itemsEl.innerHTML='';
+  bpAppliedGallery.forEach(function(item){
+    var wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;flex-direction:column;align-items:center;gap:3px;';
+    var img=document.createElement('img');
+    img.src=item.dataUrl;
+    img.style.cssText='width:60px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--border);cursor:pointer;';
+    img.title='Click to view full size';
+    img.addEventListener('click',function(){
+      var w=window.open('');
+      w.document.write('<img src="'+item.dataUrl+'" style="max-width:100%;">');
+    });
+    var label=document.createElement('span');
+    label.textContent=item.tier;
+    label.style.cssText='font-size:9px;color:var(--text-dim);';
+    wrap.appendChild(img);
+    wrap.appendChild(label);
+    itemsEl.appendChild(wrap);
+  });
+}
 
 function bpHandleImageFile(file){
   resizeImageForUpload(file, function(result){
     bpPendingImageBase64=result.base64;
     bpPendingMimeType=result.mimeType;
+    bpPendingDataUrl=result.dataUrl;
     var preview=document.getElementById('bp-preview');
     preview.src=result.dataUrl;preview.style.display='block';
     document.getElementById('bp-apply-btn').disabled=false;
@@ -1360,7 +1453,7 @@ async function applyBreakpointReference(){
     // THE GUARANTEE: merge only the in-scope portion of Gemini's output into the
     // original CSS. Anything Gemini touched outside the requested breakpoint scope
     // is silently discarded here, regardless of what it actually did.
-    var merged = mergeBreakpointResult(originalCssBeforeCall, cleanOutput, tier, breakpointPx);
+    var merged = mergeBreakpointResult(originalCssBeforeCall, cleanOutput, tier, breakpointPx, bpWidth, bpHeight);
     setCSS(merged);
     schedRender();
 
@@ -1368,6 +1461,17 @@ async function applyBreakpointReference(){
     var tierLabel = tier==='desktop' ? 'Desktop' : (tier==='custom' ? breakpointPx+'px' : tier+'px');
     status.textContent = '✓ Applied to '+tierLabel+' breakpoint — only that scope was changed';
     document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — check preview';
+
+    // Track this breakpoint as curated — protects it from being wiped by IAB/Responsive presets
+    if(tier !== 'desktop'){ bpTrackedPxValues[breakpointPx] = true; }
+
+    // Add to visible gallery so the reference image can be reviewed later
+    bpAppliedGallery.push({tier:tierLabel, px:breakpointPx, dataUrl:bpPendingDataUrl});
+    renderBpGallery();
+
+    // Since custom per-breakpoint CSS now exists, mark Unit Type as Custom so
+    // pressing IAB/Responsive later doesn't silently wipe this curated work
+    setUnitTypeUI('custom');
 
     // Reset the breakpoint uploader for the next one
     bpPendingImageBase64=null;
@@ -1484,18 +1588,41 @@ window.addEventListener('DOMContentLoaded',function(){
     if(getCSS().trim().length === 0){
       return;
     }
+    if(newType === 'custom'){
+      // No-op — Custom means "leave whatever curated per-breakpoint CSS is already
+      // here alone", it exists specifically so pressing this never destroys anything.
+      var s0 = document.getElementById('refine-status');
+      if(s0) s0.textContent = 'Custom mode — existing per-breakpoint CSS preserved as-is.';
+      unitTypeChangedSinceGen = false;
+      return;
+    }
+
+    var trackedPx = Object.keys(bpTrackedPxValues);
+    var protectedBlocks = trackedPx.map(function(px){ return extractMediaBlock(getCSS(), px); }).filter(Boolean);
+
     if(newType === 'iab'){
       var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
+      // Re-insert any curated breakpoint blocks that got stripped, so hand-crafted
+      // per-breakpoint work from reference images is never silently destroyed
+      if(protectedBlocks.length){
+        convertedIAB = convertedIAB.trim() + '\n\n' + protectedBlocks.join('\n\n');
+      }
       setCSS(convertedIAB);
       schedRender();
       var s1 = document.getElementById('refine-status');
-      if(s1) s1.textContent = '✓ IAB Fixed applied instantly — media queries stripped, max-width:' + (lastGenWidthPx || 970) + 'px set.';
+      if(s1) s1.textContent = '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
     } else {
       var convertedResp = convertToResponsiveLocal(getCSS());
+      if(protectedBlocks.length){
+        // Remove any generic duplicate the local converter may have built at the same px,
+        // then re-insert the curated version so it isn't overridden by a generic one
+        trackedPx.forEach(function(px){ convertedResp = removeMediaBlock(convertedResp, px); });
+        convertedResp = convertedResp.trim() + '\n\n' + protectedBlocks.join('\n\n');
+      }
       setCSS(convertedResp);
       schedRender();
       var s2 = document.getElementById('refine-status');
-      if(s2) s2.textContent = '✓ Responsive applied instantly — breakpoints added at 768px and 480px.';
+      if(s2) s2.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
     }
     unitTypeChangedSinceGen = false;
   }
