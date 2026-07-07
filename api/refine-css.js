@@ -103,7 +103,9 @@ module.exports = async function handler(req, res) {
     heightPx = null,
     unitType = 'iab',
     round = 1,
-    model = 'gemini-2.5-flash'
+    model = 'gemini-2.5-flash',
+    breakpointTier = null,
+    breakpointPx = null
   } = req.body || {};
 
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
@@ -148,9 +150,27 @@ ${unitType === 'iab'
 - Action script (.action): ${headerElements.action ? 'PRESENT — fills .action with "Read More"' : 'NOT PRESENT'}
 ${dimensionNote}${logoNote}`;
 
+  const breakpointNote = breakpointTier
+    ? `
+
+═══════════════════════════════════════════════════════════
+BREAKPOINT-SCOPED REFERENCE — READ THIS CAREFULLY, IT CHANGES YOUR SCOPE OF WORK
+═══════════════════════════════════════════════════════════
+This image is a reference for ONLY ONE specific screen size: ${breakpointTier === 'desktop' ? 'the DESKTOP / default (no media query) rules' : `the @media (max-width: ${breakpointPx}px) block`}.
+
+Your task is NARROWER than a normal refine request:
+1. If tier is desktop: modify ONLY the base rules that apply with no media query (outside any @media block). Do NOT touch any existing @media block at all — leave every single one exactly as it is in the input, byte-for-byte.
+2. If tier is tablet/mobile/custom: modify ONLY the rules inside the @media (max-width: ${breakpointPx}px) block. If that exact media query does not exist yet in the current CSS, create it. Do NOT touch base/desktop rules. Do NOT touch any OTHER @media block (e.g. if this reference is for 480px, a separate 768px block must remain completely untouched).
+3. Every rule outside the scope described above — base rules if this is a breakpoint reference, or any @media block if this is a desktop reference — must appear in your output IDENTICAL to the input. Copy them verbatim.
+4. This is a stricter version of the general "preserve everything unrelated" rule — here the boundary is not just "selectors mentioned in feedback" but a specific, literal CSS scope (one media query OR the base rules). Treat anything outside that scope as completely off-limits, even if you think it could be improved.
+
+Think of this as patching one specific paint layer of a multi-layer design — you are not touching the other layers at all.
+═══════════════════════════════════════════════════════════`
+    : '';
+
   const userMessage = `This is refinement round ${round}.
 
-${domNote}
+${domNote}${breakpointNote}
 
 Num Ads: ${numAds}
 Element Order: ${order}
@@ -158,7 +178,7 @@ ${order === 'text,provider'
   ? 'The headline (.maintext) must appear ABOVE/BEFORE the provider name (.dianomi_provider_short) visually. If the current CSS does not achieve this, add: .text { display:flex; flex-direction:column; } .text .maintext { order:1; } .text .dianomi_provider_short { order:2; }'
   : 'The provider name (.dianomi_provider_short) must appear ABOVE/BEFORE the headline (.maintext) visually. If the current CSS does not achieve this, add: .text { display:flex; flex-direction:column; } .text .dianomi_provider_short { order:1; } .text .maintext { order:2; }'}
 
-Here is the reference screenshot that the CSS should match:
+Here is the reference screenshot that the CSS should match${breakpointTier ? ` at the ${breakpointTier === 'desktop' ? 'desktop' : breakpointPx + 'px'} breakpoint specifically` : ''}:
 
 [image attached]
 
@@ -167,7 +187,7 @@ Here is the current CSS:
 ${currentCSS}
 \`\`\`
 
-USER FEEDBACK — fix exactly these issues:
+${breakpointTier ? 'ADDITIONAL NOTE from the person (optional, may be empty):' : 'USER FEEDBACK — fix exactly these issues:'}
 ${feedback}
 
 Output the complete corrected CSS.`;
