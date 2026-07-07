@@ -288,9 +288,9 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
             <div style="padding:10px;background:var(--surface2);border-radius:6px;margin-bottom:8px;">
               <div style="font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:6px;">Starting dimensions</div>
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-                <input type="number" id="dim-width" placeholder="Width" value="970" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 7px;border-radius:4px;outline:none;">
+                <input type="number" id="dim-width" placeholder="Width" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 7px;border-radius:4px;outline:none;">
                 <span style="color:var(--text-dim);font-size:12px;">×</span>
-                <input type="number" id="dim-height" placeholder="Height" value="250" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 7px;border-radius:4px;outline:none;">
+                <input type="number" id="dim-height" placeholder="Height" style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12px;padding:5px 7px;border-radius:4px;outline:none;">
                 <span style="color:var(--text-dim);font-size:11px;margin-left:4px;">px</span>
               </div>
               <div class="bg" id="dim-presets" style="flex-wrap:wrap;gap:4px;">
@@ -1161,6 +1161,14 @@ function handleImageFile(file){
 
 async function generateCSS(){
   if(!pendingImageBase64){return;}
+
+  var dimW = parseInt(document.getElementById('dim-width').value,10);
+  var dimH = parseInt(document.getElementById('dim-height').value,10);
+  if(!dimW || !dimH){
+    document.getElementById('gen-status').textContent = '⚠ Set the unit dimensions first (pick a preset above or type Width × Height) — Gemini needs the correct size or it will generate the wrong layout entirely.';
+    return;
+  }
+
   var btn=document.getElementById('modal-generate');
   var status=document.getElementById('gen-status');
   btn.disabled=true;
@@ -1192,8 +1200,8 @@ async function generateCSS(){
         numAds:S.numAds,
         order:S.order,
         headerElements:getHeaderToggleState(),
-        widthPx: parseInt(document.getElementById('dim-width').value,10) || Math.round((S.widthPct/100)*MAX_W),
-        heightPx: parseInt(document.getElementById('dim-height').value,10) || S.heightPx,
+        widthPx: dimW,
+        heightPx: dimH,
         unitType: S.unitType,
         model: document.getElementById('gemini-model-refine').value,
         userNote: document.getElementById('gen-note').value.trim()
