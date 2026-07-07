@@ -679,33 +679,46 @@ function applyUnitTypePreset(newType){
     return;
   }
 
-  var trackedPx = Object.keys(bpTrackedPxValues);
-  var protectedBlocks = trackedPx.map(function(px){ return extractMediaBlock(getCSS(), px); }).filter(Boolean);
+  var statusEl = document.getElementById('refine-status');
 
-  if(newType === 'iab'){
-    var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
-    // Re-insert any curated breakpoint blocks that got stripped, so hand-crafted
-    // per-breakpoint work from reference images is never silently destroyed
-    if(protectedBlocks.length){
-      convertedIAB = convertedIAB.trim() + '\n\n' + protectedBlocks.join('\n\n');
+  try {
+    var trackedPx = Object.keys(bpTrackedPxValues);
+    var protectedBlocks = trackedPx.map(function(px){ return extractMediaBlock(getCSS(), px); }).filter(Boolean);
+
+    if(newType === 'iab'){
+      var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
+      // Re-insert any curated breakpoint blocks that got stripped, so hand-crafted
+      // per-breakpoint work from reference images is never silently destroyed
+      if(protectedBlocks.length){
+        convertedIAB = convertedIAB.trim() + '\n\n' + protectedBlocks.join('\n\n');
+      }
+      setCSS(convertedIAB);
+      schedRender();
+      if(!SEC.refine) toggleSec('refine');
+      setTimeout(scrollCSSToBottomAndFlash, 50);
+      if(statusEl) statusEl.textContent = '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
+    } else {
+      var convertedResp = convertToResponsiveLocal(getCSS());
+      if(protectedBlocks.length){
+        // Remove any generic duplicate the local converter may have built at the same px,
+        // then re-insert the curated version so it isn't overridden by a generic one
+        trackedPx.forEach(function(px){ convertedResp = removeMediaBlock(convertedResp, px); });
+        convertedResp = convertedResp.trim() + '\n\n' + protectedBlocks.join('\n\n');
+      }
+      setCSS(convertedResp);
+      schedRender();
+      if(!SEC.refine) toggleSec('refine');
+      setTimeout(scrollCSSToBottomAndFlash, 50);
+      if(statusEl) statusEl.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
     }
-    setCSS(convertedIAB);
-    schedRender();
-    var s1 = document.getElementById('refine-status');
-    if(s1) s1.textContent = '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
-  } else {
-    var convertedResp = convertToResponsiveLocal(getCSS());
-    if(protectedBlocks.length){
-      // Remove any generic duplicate the local converter may have built at the same px,
-      // then re-insert the curated version so it isn't overridden by a generic one
-      trackedPx.forEach(function(px){ convertedResp = removeMediaBlock(convertedResp, px); });
-      convertedResp = convertedResp.trim() + '\n\n' + protectedBlocks.join('\n\n');
-    }
-    setCSS(convertedResp);
-    schedRender();
-    var s2 = document.getElementById('refine-status');
-    if(s2) s2.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
+  } catch(e) {
+    // Previously this failed completely silently — no status update, nothing in the
+    // UI, looked exactly like the button did nothing at all. Now the error is visible
+    // and the original CSS is left untouched rather than partially applied.
+    if(statusEl) statusEl.textContent = '⚠ ' + newType + ' conversion failed: ' + e.message + ' — CSS left unchanged. This usually means the current CSS has malformed/unbalanced braces from a bad generation; try Refine to fix structural issues first.';
+    console.error('applyUnitTypePreset error:', e);
   }
+
   unitTypeChangedSinceGen = false;
 }
 
