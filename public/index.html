@@ -666,6 +666,30 @@ function setUnitTypeUI(type){
   });
 }
 
+// Detects whether the current CSS already has meaningful, intentional responsive
+// work (per-ad-slot rules, multiple distinct properties per breakpoint) versus
+// trivial/generic content (just wrapper padding, or nothing at all). Used to decide
+// whether the Responsive button should rebuild from scratch or leave things alone —
+// Gemini can generate genuinely detailed responsive CSS during initial generation,
+// and the local converter should never blindly discard that in favour of its own
+// crude generic template.
+function hasSubstantialResponsiveCSS(css){
+  var mediaRegex = /@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g;
+  var blocks = css.match(mediaRegex) || [];
+  if(blocks.length === 0) return false;
+
+  var combined = blocks.join('\n');
+  // Per-ad-slot targeting (#dianomi_ad_N) inside a media query is a strong signal
+  // of intentional, detailed responsive design — never present in the generic template.
+  if(/#dianomi_ad_\d+/.test(combined)) return true;
+
+  // Count total declarations across all media blocks — the generic local template
+  // produces at most 2 blocks with 1 declaration each (just .wrapper padding).
+  // Anything meaningfully larger than that indicates real design work.
+  var declarationCount = (combined.match(/[a-zA-Z-]+\s*:\s*[^;]+;/g) || []).length;
+  return declarationCount > 3;
+}
+
 function applyUnitTypePreset(newType){
   if(getCSS().trim().length === 0){
     return;
@@ -698,6 +722,15 @@ function applyUnitTypePreset(newType){
       setTimeout(scrollCSSToBottomAndFlash, 50);
       if(statusEl) statusEl.textContent = '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
     } else {
+      // RESPONSIVE: if substantial responsive CSS already exists (e.g. Gemini generated
+      // detailed per-ad-slot breakpoints during initial generation), DO NOT touch it —
+      // the local generic converter would only make it worse. Only rebuild from scratch
+      // when there's genuinely nothing there yet (freshly IAB Fixed, or never had breakpoints).
+      if(hasSubstantialResponsiveCSS(getCSS())){
+        if(statusEl) statusEl.textContent = '✓ Already has detailed responsive breakpoints (per-ad rules detected) — left untouched. Use Refine if you want to adjust specific breakpoints.';
+        unitTypeChangedSinceGen = false;
+        return;
+      }
       var convertedResp = convertToResponsiveLocal(getCSS());
       if(protectedBlocks.length){
         // Remove any generic duplicate the local converter may have built at the same px,
@@ -709,7 +742,7 @@ function applyUnitTypePreset(newType){
       schedRender();
       if(!SEC.refine) toggleSec('refine');
       setTimeout(scrollCSSToBottomAndFlash, 50);
-      if(statusEl) statusEl.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
+      if(statusEl) statusEl.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' — basic breakpoints added as a starting point, use Refine to add per-ad-slot detail.');
     }
   } catch(e) {
     // Previously this failed completely silently — no status update, nothing in the
