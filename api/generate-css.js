@@ -506,7 +506,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       {
         role: 'model',
         parts: [
-          { text: 'I see a single-ad portrait unit: headline above image, provider label with "ADVERTISEMENT ·" prefix, Dianomi logo bottom-right. Here is the CSS that recreates it precisely:\n\n' + REF_CSS_1 }
+          { text: REF_CSS_1 }
         ]
       },
       {
@@ -519,7 +519,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       {
         role: 'model',
         parts: [
-          { text: 'I see a multi-ad list: thumbnail images left, headline+provider text right, dividers between items, unit heading at top. Here is CSS using solid structural defaults for this layout family:\n\n' + REF_CSS_2 }
+          { text: REF_CSS_2 }
         ]
       },
       {
@@ -532,7 +532,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       {
         role: 'model',
         parts: [
-          { text: 'I see a landscape single-ad unit: fixed-size image on the left (roughly 400x250, no rounded corners), text block vertically centered on the right with a bold sans-serif headline, a lighter-weight provider line, and a solid black rectangular CTA button below. Here is the CSS:\n\n' + REF_CSS_3 }
+          { text: REF_CSS_3 }
         ]
       },
       {
@@ -545,7 +545,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       {
         role: 'model',
         parts: [
-          { text: 'I see a 2-column horizontal grid: large bold "Sponsored Content" heading spanning the full width above all cards, cards below in 2 columns each with image-above-text, small faint Dianomi logo bottom-right. The heading must have width:100% and flex-shrink:0 so it does not get squeezed into the card row. Here is the CSS:\n\n' + REF_CSS_4 }
+          { text: REF_CSS_4 }
         ]
       },
       {
@@ -558,7 +558,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       {
         role: 'model',
         parts: [
-          { text: 'I see a decorative multi-line heading — large serif "GIFT GUIDE" title with a smaller italic script "for Him" subtitle beneath it, rendered via a ::after pseudo-element since Header Html only supports one text string. Below, each item has the brand name as a full-width label above a thumbnail+description row, achieved by making .text { display:contents } so .dianomi_provider_short can occupy its own grid row while .maintext sits beside the image. Here is the CSS:\n\n' + REF_CSS_5 }
+          { text: REF_CSS_5 }
         ]
       },
       {
@@ -571,7 +571,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       {
         role: 'model',
         parts: [
-          { text: 'I see a 3-column grid with a prominent large serif "Sponsored Content" heading spanning full width (width:100%; flex-shrink:0 — critical to prevent it sitting inline with the first card). Each card has a full 16:9 image, bold serif headline, small grey provider. Serif font family throughout. Here is the CSS:\n\n' + REF_CSS_6 }
+          { text: REF_CSS_6 }
         ]
       },
       {
@@ -584,7 +584,7 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
       {
         role: 'model',
         parts: [
-          { text: 'I see a magazine layout: grey wrapper background, white card backgrounds, small ALL-CAPS heading with a left border accent, full Dianomi wordmark (wide, ~60px) top-right at full opacity. Provider is small, uppercase, grey, sitting ABOVE the headline (element order: provider first, then maintext). Here is the CSS:\n\n' + REF_CSS_7 }
+          { text: REF_CSS_7 }
         ]
       },
       {
