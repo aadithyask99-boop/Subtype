@@ -442,13 +442,15 @@ ${unitType === 'iab'
 - Add \`max-width: ${widthPx}px\` and \`width: 100%\` to .wrapper so it shrinks proportionally inside any container up to its natural size
 - Do NOT add breakpoints that change flex-direction, hide elements, or restructure the layout
 - At most ONE fallback media query at max-width:480px is allowed, and it may ONLY flip flex-direction from row to column if the layout is horizontal — nothing else
-- Font sizes and image dimensions stay fixed at their base values; they do not scale per breakpoint`
+- Font sizes and image dimensions stay fixed at their base values; they do not scale per breakpoint
+- If your desktop CSS individually targets specific slots (#dianomi_ad_N, .first, .last, :nth-child(), grid-row/grid-column overrides), and your one allowed fallback query flips flex-direction, also neutralise any grid-row/grid-column values on those same selectors inside that fallback query — otherwise a desktop-only grid span can survive into the column layout and overlap other content`
   : `Because this is Responsive:
 - Add real breakpoints (768px and 480px minimum) that genuinely restructure the layout for smaller screens
 - Stack horizontal layouts vertically on mobile
 - Reduce font sizes at each breakpoint
 - Adjust padding/gaps to be tighter on mobile
-- This unit must look intentionally designed for phone screens, not just shrunk`}`
+- This unit must look intentionally designed for phone screens, not just shrunk
+- MANDATORY — if your desktop CSS targets specific slots individually (via #dianomi_ad_N, .first, .last, :nth-child(), or a grouped :is(...) selector — e.g. Pattern G/H/I/J or any per-slot custom sizing), a generic .hero rule inside your media query does NOT override those individually-targeted rules, because they are more specific. You MUST re-declare the SAME selector inside every breakpoint where its layout needs to change (e.g. .hero.first { grid-row: auto } to undo a desktop .hero.first { grid-row: 2 / span 3 }). Before finishing, list every non-uniform selector from your desktop CSS and confirm each one is explicitly reset or overridden at each breakpoint — do not assume a .hero/.wrapper fallback reaches them.`}`
     : '';
 
   const domNote = `
@@ -481,8 +483,9 @@ Before writing any CSS, look carefully at the screenshot and work through these 
 8. Background and dividers — is there a background colour other than white? Are there visible border lines between items, and what colour/weight?
 9. Provider position relative to image — is the provider name inline with/beside the headline (normal case), OR does it appear as a separate label ABOVE both the image and headline (e.g. a brand name spanning the full card width, with the image and description below it)? If the latter, this requires the display:contents grid-breakout technique from your instructions — .text alone cannot achieve this because .dianomi_provider_short and .maintext are both trapped inside it by default.
 10. Asymmetric height-matching — is there one clearly LARGER item beside a column of SMALLER items stacked on top of each other, where the large item's top and bottom edges line up with the top and bottom of the whole stack? If so, this is NOT a job for flexbox (flex items cannot be locked to match the combined height of several siblings in a different column). Use display:grid on .wrapper with the large item given grid-row: <start> / span <N>, and let the remaining items auto-place one per row in the other column — see the eighth reference example above.
+11. Individually-targeted selectors and breakpoints — if this unit needs responsive/tablet/mobile treatment AND your desktop CSS targets specific slots individually (#dianomi_ad_N, .first, .last, :nth-child(), or a grouped :is(...) selector — e.g. any Pattern G/H/I/J layout), a generic .hero rule inside a media query will NOT override those individually-targeted rules because they carry higher specificity. Before finishing, list every non-uniform selector you used on desktop and confirm you have re-declared or overridden that SAME selector inside each breakpoint where its layout needs to change. This is the most common cause of a unit looking correct on desktop but breaking on tablet/mobile.
 
-Only after reasoning through all 10 points, write the CSS. Match what you actually observed, not a generic default. Study the eight reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
+Only after reasoning through all 11 points, write the CSS. Match what you actually observed, not a generic default. Study the eight reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
 
 FINAL REMINDERS before you write (these are the most commonly missed rules):
 - Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the reference examples above.
