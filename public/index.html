@@ -590,6 +590,23 @@ function buildHeaderHtml(opts) {
   return parts.join('\n');
 }
 
+// Finds any <script>...</script> block in the current Header Html that ISN'T the
+// tool's own known ACTION_SCRIPT (that one is already toggle-managed and re-added
+// by buildHeaderHtml itself). Used to protect hand-added scripts — e.g. a custom
+// carousel/infinite-scroll script — from being silently deleted whenever any
+// Header Html toggle changes and rebuildHeaderFromToggles() rewrites the field.
+// Accepts both a literal </script> closing tag and the backslash-escaped <\/script>
+// form (which is how ACTION_SCRIPT itself is written) so detection works either way.
+function extractCustomScripts(headerHtml){
+  if(!headerHtml) return [];
+  var scriptRegex = /<script[^>]*>[\s\S]*?<\\?\/script>/gi;
+  var matches = headerHtml.match(scriptRegex) || [];
+  var normalizedAction = ACTION_SCRIPT.replace(/\s+/g,'');
+  return matches.filter(function(m){
+    return m.replace(/\s+/g,'') !== normalizedAction;
+  });
+}
+
 // ─────────────────────────────────────────────
 // DETERMINISTIC LOCAL IAB CONVERSION — no AI call, instant, always reliable
 // Strips media queries, ensures wrapper has proportional max-width
@@ -981,13 +998,22 @@ function getLogoPositionState() {
 
 function rebuildHeaderFromToggles() {
   var opts = getHeaderToggleState();
-  setHeader(buildHeaderHtml(opts));
+  var customScripts = extractCustomScripts(getHeader());
+  var rebuilt = buildHeaderHtml(opts);
+  if(customScripts.length){
+    rebuilt = rebuilt + '\n\n' + customScripts.join('\n\n');
+  }
+  setHeader(rebuilt);
   syncLine2Styling(opts.line2);
   syncActionStyling(opts.action);
   // Auto-expand Header Html section so the code change is visible
   if(!SEC.header) toggleSec('header');
   if(cmHeaderReady && cmHeader) cmHeader.refresh();
   schedRender();
+  if(customScripts.length){
+    var statusEl = document.getElementById('refine-status');
+    if(statusEl) statusEl.textContent = '✓ Header updated — ' + customScripts.length + ' custom script(s) preserved.';
+  }
 }
 
 // Some presets (e.g. landscape-970x250) never included div.line2 styling since they
