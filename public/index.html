@@ -163,6 +163,8 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
     <option value="flex-baseline">Flex baseline (default)</option>
     <option value="list-300x600">5-image 300×600 right rail</option>
     <option value="landscape-970x250">Landscape 970×250</option>
+    <option value="carousel-peek">Swipe carousel (fluid, peek cards)</option>
+    <option value="carousel-970x250">Swipe carousel 970×250 (fixed height, edge fade)</option>
   </select>
   <div class="pdiv"></div>
   <span class="pl">Header Html</span>
@@ -1070,6 +1072,10 @@ CP['list-300x600'] = '/* ================================================\n   5-
 
 CP['landscape-970x250'] = 'body { margin: 0; padding: 0; width: 100%; height: auto; overflow: visible; box-sizing: border-box; font-family: \'Roboto\', sans-serif; }\n.wrapper { width: 100%; height: auto; overflow: visible; background-color: #fff; padding: 0; box-sizing: border-box; display: flex; flex-direction: column; position: relative; }\n.hero { width: 100%; box-sizing: border-box; }\n.dianomihref { display: flex; flex-direction: row; align-items: center; gap: 24px; text-decoration: none; color: inherit; }\n.dianomihref img { flex-shrink: 0; width: 400px; height: 250px; object-fit: cover; display: block; }\n.text { flex: 1; display: flex; flex-direction: column; justify-content: center; position: static !important; padding: 24px 24px 24px 0; }\n.heading_top, .dianomiHeading.heading { display: none; }\n.text .line2 { display: none; }\n.maintext { font-family: \'Roboto\', sans-serif; font-size: 28px; font-weight: 700; color: #1a1a1a; line-height: 1.25; display: block; margin: 0 0 8px 0; }\n.dianomi_provider_short { font-family: \'Roboto\', sans-serif; font-size: 15px; font-weight: 400; color: #444; display: block !important; margin-bottom: 16px; text-transform: none; letter-spacing: 0; }\n.action { display: inline-block; width: fit-content; padding: 12px 28px; background: #000; color: #fff; font-family: \'Roboto\', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }\n@media (max-width: 780px) {\n  .dianomihref { flex-direction: column; align-items: flex-start; gap: 12px; }\n  .dianomihref img { width: 100%; height: auto; aspect-ratio: 16/10; }\n  .text { padding: 0 16px 16px 16px; }\n  .maintext { font-size: 20px; }\n}\n';
 
+CP['carousel-peek'] = '/* ================================================\n   SWIPE CAROUSEL — fluid width, peek cards\n   CSS scroll-snap, no JS. Header Html: Logo + Line2 (sticky badge)\n   Num Ads: 6  |  Element Order: provider, text\n   ================================================ */\n\n.wrapper {\n  display: flex;\n  flex-wrap: nowrap;\n  align-items: flex-start;\n  gap: 14px;\n  overflow-x: auto;\n  scroll-snap-type: x mandatory;\n  -webkit-overflow-scrolling: touch;\n  scrollbar-width: none;\n  padding: 16px;\n  box-sizing: border-box;\n  background: #fff;\n}\n\n.wrapper::-webkit-scrollbar {\n  display: none;\n}\n\n.line2 {\n  position: sticky;\n  left: 16px;\n  flex-shrink: 0;\n  align-self: flex-start;\n  z-index: 2;\n  font-family: Arial, sans-serif;\n  font-size: 11px;\n  font-weight: 700;\n  letter-spacing: 0.5px;\n  text-transform: uppercase;\n  color: #666;\n  background: #fff;\n  padding: 6px 10px;\n  border-radius: 4px;\n  margin-top: 4px;\n}\n\n.hero {\n  position: relative;\n  flex: 0 0 72%;\n  max-width: 320px;\n  scroll-snap-align: start;\n  background: #fff;\n  border: 1px solid #eee;\n  border-radius: 12px;\n  overflow: hidden;\n  box-sizing: border-box;\n}\n\n.dianomihref {\n  display: flex;\n  flex-direction: column;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  width: 100%;\n  aspect-ratio: 16/10;\n  object-fit: cover;\n  display: block;\n}\n\n.text {\n  position: static !important;\n  padding: 14px 16px;\n  display: flex;\n  flex-direction: column;\n}\n\n.heading_top,\n.dianomiHeading.heading {\n  display: none;\n}\n\n.text .line2 {\n  display: none;\n}\n\n.maintext {\n  font-size: 16px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n  margin-bottom: 6px;\n}\n\n.dianomi_provider_short {\n  display: block !important;\n  font-size: 13px;\n  color: #666;\n}\n\n.sub-line2 {\n  position: absolute;\n  bottom: 12px;\n  right: 12px;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 16px;\n  height: auto;\n  opacity: 0.5;\n}\n\n.action {\n  display: none;\n}\n\n@media (max-width: 480px) {\n  .hero {\n    flex-basis: 82%;\n  }\n}';
+
+CP['carousel-970x250'] = '/* ================================================\n   SWIPE CAROUSEL 970x250 — fixed height (no CLS), edge-fade tease\n   Uses mask-image (not a ::after overlay) so the fade stays pinned\n   to the wrapper edge instead of scrolling away with the cards.\n   Header Html: Logo + Line2 (sticky badge)\n   Num Ads: 6  |  Element Order: provider, text\n   ================================================ */\n\nbody {\n  margin: 0; padding: 0; width: 100%; height: auto;\n  overflow: visible; box-sizing: border-box;\n  font-family: \'Roboto\', sans-serif; background: #fff;\n}\n\n.wrapper {\n  width: 100%;\n  max-width: 970px;\n  height: 250px;\n  display: flex;\n  flex-wrap: nowrap;\n  align-items: flex-start;\n  gap: 14px;\n  overflow-x: auto;\n  scroll-snap-type: x mandatory;\n  -webkit-overflow-scrolling: touch;\n  scrollbar-width: none;\n  padding: 16px;\n  box-sizing: border-box;\n  background: #fff;\n  position: relative;\n  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 50px), transparent 100%);\n  mask-image: linear-gradient(to right, #000 calc(100% - 50px), transparent 100%);\n}\n\n.wrapper::-webkit-scrollbar {\n  display: none;\n}\n\n.line2 {\n  position: sticky;\n  left: 16px;\n  flex-shrink: 0;\n  align-self: flex-start;\n  z-index: 2;\n  font-family: Arial, sans-serif;\n  font-size: 11px;\n  font-weight: 700;\n  letter-spacing: 0.5px;\n  text-transform: uppercase;\n  color: #666;\n  background: #fff;\n  padding: 6px 10px;\n  border-radius: 4px;\n  margin-top: 4px;\n}\n\n.hero {\n  position: relative;\n  flex: 0 0 260px;\n  height: 218px;\n  scroll-snap-align: start;\n  background: #fff;\n  border: 1px solid #eee;\n  border-radius: 12px;\n  overflow: hidden;\n  box-sizing: border-box;\n}\n\n.dianomihref {\n  display: flex;\n  flex-direction: column;\n  height: 100%;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  width: 100%;\n  height: 120px;\n  object-fit: cover;\n  display: block;\n  flex-shrink: 0;\n}\n\n.text {\n  position: static !important;\n  padding: 10px 14px;\n  display: flex;\n  flex-direction: column;\n  flex: 1;\n  min-height: 0;\n}\n\n.heading_top,\n.dianomiHeading.heading {\n  display: none;\n}\n\n.text .line2 {\n  display: none;\n}\n\n.maintext {\n  font-size: 14px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n  margin-bottom: 4px;\n  display: -webkit-box;\n  -webkit-line-clamp: 2;\n  -webkit-box-orient: vertical;\n  overflow: hidden;\n}\n\n.dianomi_provider_short {\n  display: block !important;\n  font-size: 11px;\n  color: #666;\n  margin-top: auto;\n}\n\n.sub-line2 {\n  position: absolute;\n  bottom: 8px;\n  right: 8px;\n  z-index: 4;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 14px;\n  height: auto;\n  opacity: 0.5;\n}\n\n.action {\n  display: none;\n}';
+
 
 // ─────────────────────────────────────────────
 // HTML BUILDER
@@ -1918,6 +1924,32 @@ window.addEventListener('DOMContentLoaded',function(){
       document.getElementById('tg-line2').checked=false;
       document.getElementById('line2-text').style.display='none';
       document.getElementById('tg-action').checked=true;
+      document.getElementById('logo-pos').value='bottom-right';
+      rebuildHeaderFromToggles();
+      S.heightPx=250;document.getElementById('h-slider').value=250;updateHeight(250);
+      setBP(970);
+    } else if(key==='carousel-peek'){
+      S.numAds=6;document.getElementById('num-display').textContent=6;
+      S.order='provider,text';setOrderUI(S.order);
+      document.getElementById('tg-logo').checked=true;
+      document.getElementById('tg-yac').checked=false;
+      document.getElementById('tg-line2').checked=true;
+      document.getElementById('line2-text').value='Sponsored';
+      document.getElementById('line2-text').style.display='inline-block';
+      document.getElementById('tg-action').checked=false;
+      document.getElementById('logo-pos').value='bottom-right';
+      rebuildHeaderFromToggles();
+      S.heightPx=280;document.getElementById('h-slider').value=280;updateHeight(280);
+      setBP(600);
+    } else if(key==='carousel-970x250'){
+      S.numAds=6;document.getElementById('num-display').textContent=6;
+      S.order='provider,text';setOrderUI(S.order);
+      document.getElementById('tg-logo').checked=true;
+      document.getElementById('tg-yac').checked=false;
+      document.getElementById('tg-line2').checked=true;
+      document.getElementById('line2-text').value='Sponsored';
+      document.getElementById('line2-text').style.display='inline-block';
+      document.getElementById('tg-action').checked=false;
       document.getElementById('logo-pos').value='bottom-right';
       rebuildHeaderFromToggles();
       S.heightPx=250;document.getElementById('h-slider').value=250;updateHeight(250);
