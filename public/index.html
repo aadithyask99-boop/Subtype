@@ -77,6 +77,9 @@ select.psel option{background:var(--surface2);}
 .ebody.hidden{display:none;}
 .CodeMirror{height:100%!important;font-size:11px!important;line-height:1.55!important;font-family:var(--mono)!important;}
 .cm-s-dracula.CodeMirror{background:#13151f!important;}
+.cm-readonly-view{opacity:.82;position:relative;}
+.cm-readonly-view::after{content:'READ-ONLY PREVIEW';position:absolute;top:6px;right:10px;font-size:9px;letter-spacing:.5px;color:#ffb347;background:rgba(0,0,0,.5);padding:2px 6px;border-radius:3px;pointer-events:none;z-index:5;}
+.lock-badge{display:none;align-items:center;font-size:9px;padding:2px 7px;border-radius:10px;background:var(--surface2);color:var(--text-dim);cursor:pointer;margin-left:6px;white-space:nowrap;}
 textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;outline:none;font-family:var(--mono);font-size:11px;line-height:1.55;padding:10px;resize:none;}
 
 /* RIGHT */
@@ -219,8 +222,10 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
   <div class="bg" id="unit-type-btns">
     <button class="btn active" data-unittype="iab">IAB Fixed</button>
     <button class="btn" data-unittype="responsive">Responsive</button>
-                <button class="btn" data-unittype="custom" title="Has custom per-breakpoint CSS from reference images - won't be touched by IAB/Responsive presets">Custom</button>
+    <button class="btn" data-unittype="custom" title="Your live, editable master — hand edits and Refine always apply here">Custom</button>
+    <button class="btn" data-unittype="original" title="Read-only — exactly what Gemini generated first, for this unit">Original</button>
   </div>
+  <span class="lock-badge" onclick="toggleLockOverride()"></span>
   <div class="or">
     <span class="ol">Order</span>
     <div class="bg">
@@ -307,7 +312,8 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
               <div class="bg" id="unit-type-btns-refine">
                 <button class="btn" data-unittype="iab">IAB Fixed</button>
                 <button class="btn" data-unittype="responsive">Responsive</button>
-                <button class="btn" data-unittype="custom" title="Has custom per-breakpoint CSS from reference images - won't be touched by IAB/Responsive presets">Custom</button>
+                <button class="btn" data-unittype="custom" title="Your live, editable master — hand edits and Refine always apply here">Custom</button>
+                <button class="btn" data-unittype="original" title="Read-only — exactly what Gemini generated first, for this unit">Original</button>
               </div>
               <select class="psel mini-sel" id="gemini-model-refine" title="Gemini model" style="margin-left:auto;">
                 <option value="gemini-2.5-flash" selected>2.5 Flash</option>
@@ -341,8 +347,10 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
               <div class="bg" id="unit-type-btns-refine-2">
                 <button class="btn" data-unittype="iab">IAB Fixed</button>
                 <button class="btn" data-unittype="responsive">Responsive</button>
-                <button class="btn" data-unittype="custom" title="Has custom per-breakpoint CSS from reference images - won't be touched by IAB/Responsive presets">Custom</button>
+                <button class="btn" data-unittype="custom" title="Your live, editable master — hand edits and Refine always apply here">Custom</button>
+                <button class="btn" data-unittype="original" title="Read-only — exactly what Gemini generated first, for this unit">Original</button>
               </div>
+              <span class="lock-badge" onclick="toggleLockOverride()"></span>
               <select class="psel mini-sel" id="gemini-model-refine-2" title="Model for Refine calls" style="margin-left:auto;">
                 <option value="gemini-2.5-flash" selected>2.5 Flash</option>
                 <option value="gemini-2.5-pro">2.5 Pro</option>
@@ -422,6 +430,78 @@ var S = { numAds:1, widthPct:30, heightPx:600, charLen:30, provLen:15, order:'pr
 var MAX_W = 1460;
 var cmCSS=null, cmHeader=null, cmHTMLout=null;
 var cmCSSReady=false, cmHeaderReady=false;
+
+// ─────────────────────────────────────────────
+// ORIGINAL / CUSTOM MASTER SNAPSHOTS
+// originalCSS: frozen forever at first generation for this unit — the restore point.
+// customCSS: the rolling master — updated by Refine and by hand-edits made on the Custom tab.
+// lockedUnit: true when the CSS uses individually-targeted selectors (#dianomi_ad_N, .first,
+// .last, :nth-child()) with genuine per-slot LAYOUT differences (Pattern G/H/I/J-style) — the
+// exact case where the generic IAB/Responsive local converter silently destroys work. When
+// true, Original/IAB/Responsive become read-only previews and only Custom can be edited or
+// refined, so toggling between them can never lose anything. Uniform units (locked === false)
+// behave exactly as before — free editing/refining on any tab.
+// ─────────────────────────────────────────────
+var originalCSS = '';
+var customCSS = '';
+var lockedUnit = false;
+var manualLockOverride = null; // null = auto-detect, true/false = user override
+
+function detectLockedUnit(css){
+  if(!css) return false;
+  var individualSelectorRegex = /(?:#dianomi_ad_\d+|\.hero\.first|\.hero\.last|\.hero:not\([^)]*\)|\.hero:nth-child\([^)]*\)|:is\([^)]*#dianomi_ad_\d+[^)]*\))[^{]*\{[^}]*\}/g;
+  var matches = css.match(individualSelectorRegex) || [];
+  // Signal 1: any individually-targeted rule placing an item via grid — this only ever
+  // appears in genuine per-slot span/placement layouts (e.g. Pattern J asymmetric grid-span).
+  for(var i=0;i<matches.length;i++){
+    if(/grid-row\s*:|grid-column\s*:|grid-area\s*:/.test(matches[i])) return true;
+  }
+  // Signal 2: two or more individually-targeted rules pinning DIFFERENT fixed widths —
+  // e.g. a featured slot at one size and a compact list zone at another (Pattern H/I).
+  var widthValues = {};
+  matches.forEach(function(m){
+    var wm = m.match(/\bwidth\s*:\s*(\d+)px/) || m.match(/\bflex(?:-basis)?\s*:\s*[^;]*?(\d+)px/);
+    if(wm) widthValues[wm[1]] = true;
+  });
+  if(Object.keys(widthValues).length >= 2) return true;
+  return false;
+}
+
+function effectiveLockedUnit(){
+  return manualLockOverride !== null ? manualLockOverride : lockedUnit;
+}
+
+function refreshLockState(){
+  lockedUnit = detectLockedUnit(customCSS);
+  updateLockUI();
+}
+
+function updateLockUI(){
+  var locked = effectiveLockedUnit();
+  document.querySelectorAll('.lock-badge').forEach(function(el){
+    if(!originalCSS){ el.style.display='none'; return; }
+    el.style.display='inline-flex';
+    el.textContent = locked ? '🔒 Per-slot layout detected' : '🔓 Uniform unit';
+    el.title = locked
+      ? 'This unit uses individually-targeted selectors (#dianomi_ad_N / .first / .last / :nth-child) with real per-slot layout differences. Original/IAB/Responsive are read-only previews — edit or Refine on Custom only. Click to force-unlock.'
+      : 'No per-slot layout differences detected — all tabs are freely editable, same as before. Click to force-lock.';
+  });
+  applyReadOnlyState();
+}
+
+function toggleLockOverride(){
+  manualLockOverride = effectiveLockedUnit() ? false : true;
+  updateLockUI();
+}
+
+function applyReadOnlyState(){
+  if(!cmCSSReady || !cmCSS) return;
+  var locked = effectiveLockedUnit();
+  var ro = (S.unitType === 'original') || (locked && (S.unitType === 'iab' || S.unitType === 'responsive'));
+  cmCSS.setOption('readOnly', ro);
+  var wrap = cmCSS.getWrapperElement();
+  if(wrap) wrap.classList.toggle('cm-readonly-view', ro);
+}
 var renderTimer=null, currentBlob=null;
 var pendingImageBase64=null, pendingMimeType='image/png';
 var refineRound=0;
@@ -664,6 +744,7 @@ function setUnitTypeUI(type){
   document.querySelectorAll('#unit-type-btns .btn, #unit-type-btns-refine .btn, #unit-type-btns-refine-2 .btn').forEach(function(b){
     b.classList.toggle('active', b.dataset.unittype === type);
   });
+  applyReadOnlyState();
 }
 
 // Detects whether the current CSS already has meaningful, intentional responsive
@@ -691,26 +772,49 @@ function hasSubstantialResponsiveCSS(css){
 }
 
 function applyUnitTypePreset(newType){
-  if(getCSS().trim().length === 0){
+  if(getCSS().trim().length === 0 && newType !== 'original'){
     return;
   }
-  if(newType === 'custom'){
-    // No-op — Custom means "leave whatever curated per-breakpoint CSS is already
-    // here alone", it exists specifically so pressing this never destroys anything.
-    var s0 = document.getElementById('refine-status');
-    if(s0) s0.textContent = 'Custom mode — existing per-breakpoint CSS preserved as-is.';
+  var statusEl = document.getElementById('refine-status');
+  var locked = effectiveLockedUnit();
+
+  if(newType === 'original'){
+    if(!originalCSS){
+      if(statusEl) statusEl.textContent = 'No Original snapshot yet — generate a unit first.';
+      return;
+    }
+    setCSS(originalCSS);
+    schedRender();
+    applyReadOnlyState();
+    if(!SEC.refine) toggleSec('refine');
+    if(statusEl) statusEl.textContent = '📌 Original — exactly what Gemini generated first for this unit. Read-only; switch to Custom to make changes.';
     unitTypeChangedSinceGen = false;
     return;
   }
 
-  var statusEl = document.getElementById('refine-status');
+  if(newType === 'custom'){
+    // Custom is the live master — always shows the latest hand-edited/refined state.
+    setCSS(customCSS || getCSS());
+    schedRender();
+    applyReadOnlyState();
+    if(statusEl) statusEl.textContent = locked
+      ? '✎ Custom — your live, editable master. Refine here for anything, including mobile/responsive fixes; IAB and Responsive are safe read-only previews and can\'t lose this work.'
+      : 'Custom mode — existing CSS preserved as-is.';
+    unitTypeChangedSinceGen = false;
+    return;
+  }
+
+  // newType is 'iab' or 'responsive'.
+  // Locked units always derive fresh from Custom (never compound, never touch the master).
+  // Unlocked units behave exactly as before — operate on whatever's currently on screen.
+  var sourceCSS = locked ? (customCSS || getCSS()) : getCSS();
 
   try {
     var trackedPx = Object.keys(bpTrackedPxValues);
-    var protectedBlocks = trackedPx.map(function(px){ return extractMediaBlock(getCSS(), px); }).filter(Boolean);
+    var protectedBlocks = trackedPx.map(function(px){ return extractMediaBlock(sourceCSS, px); }).filter(Boolean);
 
     if(newType === 'iab'){
-      var convertedIAB = convertToIABLocal(getCSS(), lastGenWidthPx || 970);
+      var convertedIAB = convertToIABLocal(sourceCSS, lastGenWidthPx || 970);
       // Re-insert any curated breakpoint blocks that got stripped, so hand-crafted
       // per-breakpoint work from reference images is never silently destroyed
       if(protectedBlocks.length){
@@ -718,20 +822,36 @@ function applyUnitTypePreset(newType){
       }
       setCSS(convertedIAB);
       schedRender();
+      applyReadOnlyState();
       if(!SEC.refine) toggleSec('refine');
       setTimeout(scrollCSSToBottomAndFlash, 50);
-      if(statusEl) statusEl.textContent = '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
+      if(statusEl) statusEl.textContent = locked
+        ? '🔒 Read-only IAB preview, freshly derived from Custom — Custom itself is untouched.' + (protectedBlocks.length ? ' ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : '')
+        : '✓ IAB Fixed applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' instantly.');
     } else {
-      // RESPONSIVE: if substantial responsive CSS already exists (e.g. Gemini generated
-      // detailed per-ad-slot breakpoints during initial generation), DO NOT touch it —
-      // the local generic converter would only make it worse. Only rebuild from scratch
+      if(locked){
+        // This unit's responsive behaviour depends on individually-targeted selectors
+        // (Pattern G/H/I/J-style) that the generic local converter cannot reason about —
+        // running it through convertToResponsiveLocal is exactly what breaks it. Custom
+        // already IS the correct Gemini-authored responsive version, so just show it as-is.
+        setCSS(customCSS);
+        schedRender();
+        applyReadOnlyState();
+        if(!SEC.refine) toggleSec('refine');
+        if(statusEl) statusEl.textContent = '🔒 Read-only Responsive preview — this unit has per-slot layout logic, so Responsive shows Custom as-is rather than running the generic converter (which would break it). Use Refine on Custom to change anything.';
+        unitTypeChangedSinceGen = false;
+        return;
+      }
+      // RESPONSIVE (unlocked): if substantial responsive CSS already exists (e.g. Gemini
+      // generated detailed per-ad-slot breakpoints during initial generation), DO NOT touch
+      // it — the local generic converter would only make it worse. Only rebuild from scratch
       // when there's genuinely nothing there yet (freshly IAB Fixed, or never had breakpoints).
       if(hasSubstantialResponsiveCSS(getCSS())){
         if(statusEl) statusEl.textContent = '✓ Already has detailed responsive breakpoints (per-ad rules detected) — left untouched. Use Refine if you want to adjust specific breakpoints.';
         unitTypeChangedSinceGen = false;
         return;
       }
-      var convertedResp = convertToResponsiveLocal(getCSS());
+      var convertedResp = convertToResponsiveLocal(sourceCSS);
       if(protectedBlocks.length){
         // Remove any generic duplicate the local converter may have built at the same px,
         // then re-insert the curated version so it isn't overridden by a generic one
@@ -740,6 +860,7 @@ function applyUnitTypePreset(newType){
       }
       setCSS(convertedResp);
       schedRender();
+      applyReadOnlyState();
       if(!SEC.refine) toggleSec('refine');
       setTimeout(scrollCSSToBottomAndFlash, 50);
       if(statusEl) statusEl.textContent = '✓ Responsive applied' + (protectedBlocks.length ? ' — ' + protectedBlocks.length + ' curated breakpoint(s) preserved.' : ' — basic breakpoints added as a starting point, use Refine to add per-ad-slot detail.');
@@ -1295,6 +1416,13 @@ async function generateCSS(){
     setCSS(stripCssComments(getCSS()));
     lastGenWidthPx = parseInt(document.getElementById('dim-width').value,10) || 970;
     lastGenHeightPx = parseInt(document.getElementById('dim-height').value,10) || 250;
+    // Fresh unit: this generation IS both the restore point and the starting master —
+    // capture both snapshots and re-run lock detection before anything else touches it.
+    originalCSS = getCSS();
+    customCSS = getCSS();
+    manualLockOverride = null;
+    refreshLockState();
+    setUnitTypeUI('custom');
     unitTypeChangedSinceGen = false;
     status.textContent='✓ CSS generated';
     schedRender();
@@ -1322,8 +1450,19 @@ async function generateCSS(){
 async function refineCSS(){
   var feedback = document.getElementById('refine-input').value.trim();
 
+  // Locked units: Refine only ever makes sense against the live Custom master — IAB,
+  // Responsive and Original are read-only previews. If the person hits Refine while
+  // looking at one of those, silently switch to Custom first so the feedback lands
+  // on the right CSS instead of being applied to (and lost from) a read-only view.
+  if(effectiveLockedUnit() && S.unitType !== 'custom'){
+    setUnitTypeUI('custom');
+    applyUnitTypePreset('custom');
+    document.getElementById('refine-status').textContent = 'Switched to Custom — Refine always applies to your live master on locked units.';
+  }
+
   // Auto-inject a conversion instruction if Unit Type was changed since last generation
-  if(unitTypeChangedSinceGen){
+  // (only meaningful for the iab/responsive presets — custom/original aren't conversions)
+  if(unitTypeChangedSinceGen && (S.unitType === 'iab' || S.unitType === 'responsive')){
     var conversionText = S.unitType === 'iab'
       ? 'Convert this unit to IAB Fixed behaviour: remove any breakpoint-driven layout restructuring, make the wrapper shrink proportionally with max-width:100%, keep at most one small-viewport (480px) fallback that only adjusts flex-direction — do not add multiple breakpoints or hide/resize elements progressively.'
       : 'Convert this unit to fully Responsive behaviour: add proper breakpoints (e.g. 768px, 480px) that genuinely reflow the layout — stack elements vertically on mobile, adjust font sizes and spacing per breakpoint, hide non-essential elements if needed at small sizes.';
@@ -1408,6 +1547,8 @@ async function refineCSS(){
     }
 
     setCSS(stripCssComments(getCSS()));
+    customCSS = getCSS();
+    refreshLockState();
     schedRender();
     refineRound++;
     document.getElementById('refine-round-label').textContent='Round '+refineRound+' complete — preview updated';
@@ -1568,6 +1709,8 @@ async function applyBreakpointReference(){
     // is silently discarded here, regardless of what it actually did.
     var merged = mergeBreakpointResult(originalCssBeforeCall, cleanOutput, tier, breakpointPx, bpWidth, bpHeight);
     setCSS(merged);
+    customCSS = getCSS();
+    refreshLockState();
     schedRender();
 
     refineRound++;
@@ -1622,7 +1765,20 @@ window.addEventListener('DOMContentLoaded',function(){
       lineWrapping:false,autofocus:true,
       extraKeys:{Tab:function(cm){cm.replaceSelection('  ');}}
     });
-    cmCSS.setSize('100%','100%');cmCSS.on('change',schedRender);cmCSSReady=true;
+    cmCSS.setSize('100%','100%');
+    cmCSS.on('change', function(instance, changeObj){
+      schedRender();
+      // 'setValue' origin = programmatic (button clicks, streaming) — never a real hand edit.
+      // Only genuine keystrokes sync into the Custom master; this also means an edit made
+      // while a read-only preview briefly slips through (readOnly should already block it)
+      // never gets treated as a Custom update.
+      if(changeObj.origin === 'setValue') return;
+      if(S.unitType === 'custom' || !effectiveLockedUnit()){
+        customCSS = getCSS();
+        refreshLockState();
+      }
+    });
+    cmCSSReady=true;
   }catch(e){var ta=document.getElementById('ta-css');if(ta)ta.addEventListener('input',schedRender);}
 
   // Header CM
@@ -1775,7 +1931,16 @@ window.addEventListener('DOMContentLoaded',function(){
       document.getElementById('logo-pos').value='bottom-right';
       rebuildHeaderFromToggles();
     }
-    this.value='';schedRender();
+    this.value='';
+    // Loading a starter preset is effectively a fresh unit — capture it as the new
+    // restore point / master too, so Refine and the lock system work the same way
+    // they would for a Gemini-generated unit.
+    originalCSS = getCSS();
+    customCSS = getCSS();
+    manualLockOverride = null;
+    refreshLockState();
+    setUnitTypeUI('custom');
+    schedRender();
   });
 
   // Toggle chip listeners — mix and match Header Html composition
