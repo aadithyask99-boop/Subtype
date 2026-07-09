@@ -483,6 +483,8 @@ Three connected problems, discovered and fixed in sequence over one session. Doc
 
 **Workaround in the meantime:** don't click any Header Html toggle after pasting a custom script — set toggles first, paste the script last, and leave toggles untouched afterward. If a toggle must change, re-paste the script manually afterward.
 
+**Decision (2026-07-09):** after a further scrolling glitch observed while testing, decided to pause all Header Html JavaScript work for now — this includes both the custom-script preservation fix above AND the seamless infinite-scroll carousel script (DOM-cloning approach) explored earlier in this session. Neither is in active use. **The pure-CSS scroll-snap carousel (peek carousel, no JS, `.wrapper`/`.hero` only) is unaffected by this pause and remains the active direction** — it never touched Header Html or any script, so it carries none of this session's risk.
+
 ---
 
 ## What Gemini Does and Doesn't Learn
