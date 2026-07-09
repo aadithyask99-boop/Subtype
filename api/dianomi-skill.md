@@ -1388,6 +1388,57 @@ Key technique: target individual slot IDs or ranges using `:is()`. Each "zone" i
 
 ---
 
+## LAYOUT PATTERN J: ASYMMETRIC GRID-SPAN (1 large item + N stacked compact items)
+
+Used for: one large "featured" item on one side (image-above-text, portrait style) paired with several compact list items stacked on the other side, where the large item's height visually matches the COMBINED height of all the stacked items — e.g. a single hero card on the left with three thumbnail-left/text-right list rows stacked on the right.
+
+**Why Pattern H and Pattern I do NOT solve this:** both of those use flexbox `flex: 1 1 Npx` or `float` with fixed widths — every zone is sized independently by its own content, so the large item and the stacked column can end up different heights (the large item overshoots or undershoots the stack). Neither pattern makes one sibling's height genuinely track N other siblings stacked together, because flexbox `order` and `float` only control position, not cross-sibling height matching.
+
+**The fix: CSS Grid with explicit row-spanning, not flexbox.** This is the only reliable technique for making one item span the full height of several other items stacked beside it:
+
+```css
+.wrapper {
+  display: grid;
+  grid-template-columns: 1fr 2fr;   /* tune ratio to the large item's proportion */
+  column-gap: 32px;
+  row-gap: 20px;
+  position: relative;
+}
+
+.line2 {
+  grid-column: 1 / -1;   /* heading spans both columns */
+}
+
+/* First hero: place in column 1, span every row the stacked items occupy */
+.hero.first {
+  grid-column: 1;
+  grid-row: 2 / span 3;   /* span N = number of stacked items on the right */
+}
+
+/* Remaining heroes: column 2 only — grid auto-placement drops them into
+   rows 1, 2, 3... automatically since no grid-row is set on them */
+.hero:not(.first) {
+  grid-column: 2;
+}
+```
+
+**Why this works and flexbox can't:** CSS Grid lets one item claim `grid-row: 2 / span 3` — occupying the same vertical space as three separate siblings in the other column — while those three siblings simply auto-place one-per-row with no positioning rules of their own. The large item's actual rendered height then equals the SUM of the three row heights plus gaps, which is exactly the "spans the height of the stack" effect. Flexbox has no equivalent: a flex item can only be tall or short based on its own content, never explicitly locked to match N siblings in a different flex context.
+
+**Recognising this pattern from a screenshot:** look for one clearly larger/taller item beside a column of visually smaller, evenly-stacked list rows, where the large item's bottom edge lines up with the last stacked row's bottom edge. That alignment is the signal — if it's present, reach for `display:grid` + `grid-row: span N` on the large item, not flex.
+
+**Selector for "first" vs "rest":** use `.hero.first` (Dianomi applies `.first` to the opening `.hero` automatically per the DOM structure) rather than `:nth-child()`, since `.hero` siblings may have other non-hero elements between them in some configurations.
+
+**Mobile:** collapse to a single column and let the large item return to normal document flow:
+```css
+@media (max-width: 600px) {
+  .wrapper { grid-template-columns: 1fr; }
+  .hero.first { grid-column: 1; grid-row: auto; }
+  .hero:not(.first) { grid-column: 1; }
+}
+```
+
+---
+
 ## THE DIANOMI LOGO — TWO VARIANTS + ALIGNMENT PATTERNS
 
 There are two completely different Dianomi attribution marks, and the CSS must handle them differently.
