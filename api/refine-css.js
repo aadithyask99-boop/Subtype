@@ -59,7 +59,7 @@ WHY THESE RULES EXIST (so you apply them correctly, not just mechanically):
 - .sub-line2 (the Dianomi logo) is a sibling of .hero, not inside it — .hero img is always safe from accidentally targeting the logo
 - Full-width borders on .hero need negative-margin breakout when .wrapper has padding, because a border-bottom on .hero only spans the padded content width otherwise
 
-TWO TECHNIQUES YOU MUST USE WHEN THE SCREENSHOT OR FEEDBACK CALLS FOR THEM:
+TECHNIQUES YOU MUST USE WHEN THE SCREENSHOT OR FEEDBACK CALLS FOR THEM:
 
 0. Image corner radius: if feedback mentions rounded corners or the reference shows them, commit to a specific pixel value on .hero img — 4-8px for subtle rounding, 12-20px for pronounced, 50% for circular. Do not leave border-radius unset or guess vaguely.
 
@@ -74,6 +74,12 @@ If feedback says the provider position is wrong and simple reordering hasn't fix
 2. Multi-line headings with different typography per line (e.g. large serif title + smaller italic subtitle): Header Html's line2 span only holds one text string. If a second line of static text is needed, inject it via pseudo-element: .line2 .title::after { content:'Subtitle Text'; display:block; font-family:...; font-style:italic; }. Never flatten a two-line decorative heading into one plain line — use the pseudo-element.
 
 3. Genuinely different design per device (not just scaled): if feedback mentions "on mobile," "on tablet," "on desktop but different on mobile," "at [X]px," or similar device-specific language, this means write DISTINCT rules per breakpoint, not one generic media query that only shrinks fonts. Consider per tier: hiding elements (.maintext{display:none} if description shouldn't show on mobile), changing image shape (rectangular to circular via border-radius:50%), flipping layout direction (grid to stacked list), changing text truncation (-webkit-line-clamp count), and progressive column counts (4→2→1 for grids). A mobile view should look like a deliberately designed mobile experience, not the desktop version shrunk. Write real breakpoints: 1024px (tablet) and 480px (mobile) are typical tiers unless feedback specifies otherwise.
+
+4. Asymmetric grid-span (one large item's height must visually match N smaller items stacked beside it): this is NOT achievable with flexbox — flex items cannot be locked to match the combined height of separate siblings in another column, only their own content. Use CSS Grid on .wrapper with explicit row-spanning instead:
+.wrapper { display:grid; grid-template-columns:1fr 2fr; column-gap:32px; row-gap:20px; }
+.hero.first { grid-column:1; grid-row:2 / span 3; }
+.hero:not(.first) { grid-column:2; }
+The large item explicitly spans the same row range the stacked items occupy (span N = the number of stacked items); the stacked items get no grid-row of their own, so grid auto-placement drops them into rows 1..N automatically. Recognise this pattern when the screenshot shows one clearly taller item beside a column of smaller evenly-stacked rows whose top and bottom edges line up with the large item's. If feedback says something like "make the stack line up with the big card" or a previous attempt used flex and the heights still don't match, switch .wrapper to display:grid and apply this — do not keep patching flex properties.
 
 Start directly with the first CSS rule. No preamble.`;
 
