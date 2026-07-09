@@ -20,6 +20,7 @@ const REF_IMAGE_4 = loadRefImage('example-4-heading-grid.jpg');         // 2-col
 const REF_IMAGE_5 = loadRefImage('example-5-gift-guide.jpg');           // Multi-line decorative heading + provider-as-label grid technique
 const REF_IMAGE_6 = loadRefImage('example-6-ft-hybrid-grid.jpg');       // FT-style 3-column grid, serif heading top-left
 const REF_IMAGE_7 = loadRefImage('example-7-multizone-magazine.jpg');   // Multi-zone magazine (PAID PARTNER CONTENT style)
+const REF_IMAGE_8 = loadRefImage('example-8-asymmetric-grid-span.jpg'); // 1 large item + 3 stacked compact items, CSS Grid row-span
 
 const REF_CSS_1 = `body {
   padding: 0;
@@ -389,6 +390,8 @@ const REF_CSS_6 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height
 
 const REF_CSS_7 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height: auto;\n  overflow: visible;\n  box-sizing: border-box;\n  background: #f2f2f2;\n}\n\n.wrapper {\n  width: 100%;\n  background: #f2f2f2;\n  padding: 16px;\n  box-sizing: border-box;\n  display: flex;\n  flex-direction: row;\n  flex-wrap: wrap;\n  gap: 16px;\n  position: relative;\n}\n\n.line2 {\n  width: 100%;\n  flex-shrink: 0;\n  font-family: Arial, sans-serif;\n  font-size: 11px;\n  font-weight: 700;\n  color: #333;\n  text-transform: uppercase;\n  letter-spacing: 1px;\n  margin-bottom: 4px;\n  display: block;\n  border-left: 3px solid #333;\n  padding-left: 8px;\n}\n\n.line2 .title {\n  font: inherit;\n}\n\n.sub-line2 {\n  position: absolute;\n  top: 16px;\n  right: 16px;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 60px;\n  height: auto;\n  display: block;\n}\n\n.hero {\n  flex: 1 1 calc(33.33% - 11px);\n  min-width: 0;\n  box-sizing: border-box;\n  background: #fff;\n}\n\n.dianomihref {\n  display: flex;\n  flex-direction: column;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero img {\n  width: 100%;\n  aspect-ratio: 16/10;\n  object-fit: cover;\n  display: block;\n}\n\n.text {\n  position: static !important;\n  display: flex;\n  flex-direction: column;\n  padding: 12px;\n}\n\n.heading_top, .dianomiHeading.heading {\n  display: none;\n}\n\n.text .line2 {\n  display: none;\n}\n\n.dianomi_provider_short {\n  font-family: Arial, sans-serif;\n  font-size: 11px;\n  font-weight: 700;\n  color: #888;\n  display: block !important;\n  text-transform: uppercase;\n  letter-spacing: 0.5px;\n  margin-bottom: 6px;\n}\n\n.maintext {\n  font-family: Arial, sans-serif;\n  font-size: 16px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n  display: block;\n}\n\n.action {\n  display: none;\n}\n\n@media (max-width: 768px) {\n  .hero {\n    flex: 1 1 calc(50% - 8px);\n  }\n}\n\n@media (max-width: 480px) {\n  .wrapper {\n    gap: 10px;\n  }\n\n  .hero {\n    flex: 1 1 100%;\n  }\n}`;
 
+const REF_CSS_8 = `body {\n  margin: 0;\n  padding: 0;\n  width: 100%;\n  height: auto;\n  overflow: visible;\n  box-sizing: border-box;\n  background: #fff;\n}\n\n.wrapper {\n  width: 100%;\n  background: #fff;\n  padding: 20px;\n  box-sizing: border-box;\n  display: grid;\n  grid-template-columns: 1fr 2fr;\n  column-gap: 32px;\n  row-gap: 20px;\n  position: relative;\n}\n\n.line2 {\n  grid-column: 1 / -1;\n  font-family: Arial, sans-serif;\n  font-size: 12px;\n  font-weight: 700;\n  letter-spacing: 1px;\n  text-transform: uppercase;\n  color: #1a1a1a;\n}\n\n.line2 .title {\n  font: inherit;\n}\n\n.sub-line2 {\n  position: absolute;\n  top: 16px;\n  right: 16px;\n  z-index: 1;\n}\n\n.sub-line2 img.dianomi-lg {\n  width: 90px;\n  height: auto;\n  display: block;\n}\n\n.hero {\n  box-sizing: border-box;\n}\n\n.hero.first {\n  grid-column: 1;\n  grid-row: 2 / span 3;\n}\n\n.hero:not(.first) {\n  grid-column: 2;\n}\n\n.hero:not(.first):not(.last) {\n  border-bottom: 1px solid #eee;\n  padding-bottom: 16px;\n}\n\n.dianomihref {\n  display: flex;\n  text-decoration: none;\n  color: inherit;\n}\n\n.hero.first .dianomihref {\n  flex-direction: column;\n}\n\n.hero:not(.first) .dianomihref {\n  flex-direction: row;\n  gap: 16px;\n  align-items: flex-start;\n}\n\n.hero.first img {\n  width: 100%;\n  aspect-ratio: 4/3;\n  object-fit: cover;\n  display: block;\n  margin-bottom: 12px;\n}\n\n.hero:not(.first) img {\n  width: 96px;\n  height: 96px;\n  object-fit: cover;\n  flex-shrink: 0;\n  display: block;\n}\n\n.text {\n  position: static !important;\n  display: flex;\n  flex-direction: column;\n}\n\n.heading_top, .dianomiHeading.heading {\n  display: none;\n}\n\n.text .line2 {\n  display: none;\n}\n\n.hero.first .maintext {\n  font-size: 20px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n}\n\n.hero:not(.first) .maintext {\n  font-size: 17px;\n  font-weight: 700;\n  line-height: 1.3;\n  color: #1a1a1a;\n  margin-bottom: 4px;\n}\n\n.dianomi_provider_short {\n  display: block !important;\n  font-size: 13px;\n  color: #666;\n}\n\n.action {\n  display: none;\n}\n\n@media (max-width: 600px) {\n  .wrapper {\n    grid-template-columns: 1fr;\n  }\n\n  .hero.first {\n    grid-column: 1;\n    grid-row: auto;\n  }\n\n  .hero:not(.first) {\n    grid-column: 1;\n  }\n}`;
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -477,11 +480,12 @@ Before writing any CSS, look carefully at the screenshot and work through these 
 7. Attribution — where does the Dianomi logo ("D" icon or full wordmark) sit? Six positions: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right. CRITICAL SPECIAL CASE: for inline/banner units (image-left, text-right, wide single-row cards) the "D" icon appears to float on the SAME horizontal axis as the provider text at the far right. This requires position:absolute; right:16px; top:50%; transform:translateY(-50%) on .sub-line2 — NOT bottom:0 which places it below the content line. Also add padding-right:48px to .wrapper to stop content overlapping the icon.
 8. Background and dividers — is there a background colour other than white? Are there visible border lines between items, and what colour/weight?
 9. Provider position relative to image — is the provider name inline with/beside the headline (normal case), OR does it appear as a separate label ABOVE both the image and headline (e.g. a brand name spanning the full card width, with the image and description below it)? If the latter, this requires the display:contents grid-breakout technique from your instructions — .text alone cannot achieve this because .dianomi_provider_short and .maintext are both trapped inside it by default.
+10. Asymmetric height-matching — is there one clearly LARGER item beside a column of SMALLER items stacked on top of each other, where the large item's top and bottom edges line up with the top and bottom of the whole stack? If so, this is NOT a job for flexbox (flex items cannot be locked to match the combined height of several siblings in a different column). Use display:grid on .wrapper with the large item given grid-row: <start> / span <N>, and let the remaining items auto-place one per row in the other column — see the eighth reference example above.
 
-Only after reasoning through all 8 points, write the CSS. Match what you actually observed, not a generic default. Study the seven reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
+Only after reasoning through all 10 points, write the CSS. Match what you actually observed, not a generic default. Study the eight reference examples above for code quality and the correct selector patterns, but derive every specific value (colours, sizes, spacing) from THIS screenshot, not from the references.
 
 FINAL REMINDERS before you write (these are the most commonly missed rules):
-- Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the seven reference examples above.
+- Every CSS rule spans MULTIPLE LINES — selector, brace, one property per line, closing brace. Never one-line compressed rules. Match the exact formatting of the reference examples above.
 - Each selector appears EXACTLY ONCE in your output.
 - Use .hero img, never .dianomihref img.
 - Use .dianomihref (short form), never .subhero a.dianomihref.
@@ -585,6 +589,19 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
         role: 'model',
         parts: [
           { text: REF_CSS_7 }
+        ]
+      },
+      {
+        role: 'user',
+        parts: [
+          { text: "Here is an EIGHTH REFERENCE EXAMPLE — an asymmetric layout: one large single-ad item on the left (image above text, portrait style), paired with three compact stacked list items on the right (thumbnail left, text right), where the large item's height visually matches the combined height of all three stacked items. CRITICAL TECHNIQUE: this is built with CSS GRID, not flexbox. .wrapper uses display:grid with two columns. The first .hero gets grid-column:1; grid-row: 2 / span 3 so it explicitly spans the same vertical space as the three items stacked beside it. The remaining .hero elements only get grid-column:2 — grid auto-placement drops them into rows 1, 2, 3 automatically. Flexbox cannot make one sibling's height track several other siblings like this; only CSS Grid row-spanning can. Recognise this pattern whenever one clearly larger item sits beside a column of smaller evenly-stacked rows with matching top/bottom edges." },
+          { inline_data: { mime_type: 'image/jpeg', data: REF_IMAGE_8 } }
+        ]
+      },
+      {
+        role: 'model',
+        parts: [
+          { text: REF_CSS_8 }
         ]
       },
       {
