@@ -51,6 +51,7 @@ STRICT RULES:
   - For inline/banner units: .sub-line2 needs top:50%; transform:translateY(-50%) to vertically centre the logo — do NOT remove or change transform values unless feedback explicitly asks to reposition the logo
   - Pseudo-elements (::before, ::after) are fine for decorative marks
   - Group multiple ID overrides with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains
+  - If the CSS has any breakpoints AND uses individually-targeted selectors on desktop (#dianomi_ad_N, .first, .last, :nth-child()), verify every one of them is explicitly re-declared inside each breakpoint where its properties need to change — a generic .hero rule does not reach a more specific selector
 
 WHY THESE RULES EXIST (so you apply them correctly, not just mechanically):
 - .dianomi_provider_short needs !important because Dianomi injects style="display:inline" on it at runtime, which beats a plain class rule
@@ -80,6 +81,8 @@ If feedback says the provider position is wrong and simple reordering hasn't fix
 .hero.first { grid-column:1; grid-row:2 / span 3; }
 .hero:not(.first) { grid-column:2; }
 The large item explicitly spans the same row range the stacked items occupy (span N = the number of stacked items); the stacked items get no grid-row of their own, so grid auto-placement drops them into rows 1..N automatically. Recognise this pattern when the screenshot shows one clearly taller item beside a column of smaller evenly-stacked rows whose top and bottom edges line up with the large item's. If feedback says something like "make the stack line up with the big card" or a previous attempt used flex and the heights still don't match, switch .wrapper to display:grid and apply this — do not keep patching flex properties.
+
+5. MANDATORY — individually-targeted selectors are NOT reset by generic breakpoint rules: if feedback says something like "mobile/tablet isn't responsive," "the desktop layout is showing on phone," "it's not stacking on mobile," or similar — and the current CSS targets specific slots individually (via #dianomi_ad_N, .first, .last, :nth-child(), or a grouped :is(#dianomi_ad_X, ...) selector, e.g. any Pattern G/H/I/J layout or per-slot custom sizing) — check whether the existing media queries actually re-declare THOSE SAME selectors. A generic .hero { flex:1 1 100% } inside a media query does NOT override .hero.first { grid-row: 2 / span 3 } or #dianomi_ad_3 { width: 80px } from the desktop rules, because the individually-targeted selector is more specific and simply keeps applying underneath. The fix is to add or correct a rule for that EXACT selector (or one of equal/greater specificity) inside the relevant breakpoint, explicitly overriding every layout-affecting property it set on desktop (grid-row, grid-column, flex, width, order, float, position, image size — not just one of them). Do this for every individually-targeted selector present in the CSS, not only the one the person happened to mention — if one broke, the others targeting different slots the same way are very likely broken too.
 
 Start directly with the first CSS rule. No preamble.`;
 
