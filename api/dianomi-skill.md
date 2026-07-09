@@ -943,6 +943,45 @@ Notice mobile here isn't "the same 4-column grid but smaller" — it's a complet
 ### Recognising device-specific intent in feedback
 Phrases like "on mobile," "on tablet," "on phone," "at [breakpoint]px," "when it's smaller," "on desktop but different on mobile" signal the person wants tier-specific treatment, not uniform scaling. When you see this language, write distinct rules per breakpoint rather than one generic `@media` block that only adjusts a couple of font-sizes. Ask yourself: would someone looking at only the mobile view recognise it as a *deliberately designed* mobile experience, or does it look like the desktop version just got smaller? Aim for the former.
 
+### MANDATORY — resetting INDIVIDUALLY-TARGETED selectors at every breakpoint (not just images)
+
+Whenever desktop CSS gives ONE OR SOME ad slots different styling than the rest of the unit — via an ID selector (`#dianomi_ad_N`), a state class (`.first`, `.last`), a structural pseudo-class (`:nth-child()`, `:not(:first-child)`, etc.), or a grouped `:is(#dianomi_ad_X, #dianomi_ad_Y, ...)` selector — that rule has its own specificity and is **NOT** automatically overridden by a generic `.hero` or `.wrapper` rule inside a media query. It will silently carry its desktop value into tablet and mobile unless you write an explicit rule for that SAME (or equally/more specific) selector inside the breakpoint. This is the single most common cause of "it looked right on desktop but broke on mobile."
+
+**Two cases:**
+- **Uniform unit** (every `.hero` styled identically on desktop): a generic `.hero { ... }` rule at your breakpoint is enough — nothing individually-targeted exists to reset.
+- **Individually-targeted unit** (Pattern G, H, I, J, or any custom per-slot styling): any property set via `#dianomi_ad_N`, `.first`, `.last`, `:nth-child()`, or similar MUST be explicitly re-declared inside EVERY media query where that layout needs to change. A bare `.hero { flex:1 1 100% }` cannot override `.hero.first { grid-row: 2 / span 3 }` — `.hero.first` is more specific and wins regardless of where the generic rule sits in the cascade.
+
+**Worked example — Pattern J desktop → mobile:**
+```css
+/* DESKTOP */
+.wrapper { display: grid; grid-template-columns: 1fr 2fr; }
+.hero.first { grid-column: 1; grid-row: 2 / span 3; }
+.hero:not(.first) { grid-column: 2; }
+```
+```css
+/* WRONG — .hero.first is never re-targeted, so it keeps grid-row:2/span 3 on mobile
+   even though .wrapper is now single-column, producing broken/overlapping layout */
+@media (max-width: 480px) {
+  .wrapper { grid-template-columns: 1fr; }
+  .hero { flex: 1 1 100%; }
+}
+```
+```css
+/* CORRECT — the exact selectors used on desktop are re-targeted with new values */
+@media (max-width: 480px) {
+  .wrapper { grid-template-columns: 1fr; }
+  .hero.first { grid-column: 1; grid-row: auto; }
+  .hero:not(.first) { grid-column: 1; }
+}
+```
+
+**Checklist to run before finishing any Responsive unit:**
+1. List every selector in your desktop CSS that targets FEWER than all `.hero` elements (IDs, `.first`, `.last`, `:nth-child()`, grouped `:is()` selectors).
+2. For each one, ask whether its layout-affecting properties (`grid-row`, `grid-column`, `flex`, `width`, `order`, `float`, `position`, image size, etc.) need to change at this breakpoint.
+3. If yes, write a rule for that EXACT selector — or one of equal/greater specificity — inside the media query. Never assume a generic `.hero`/`.wrapper` rule will reach an individually-targeted element; specificity does not work that way.
+
+The image-sizing consistency rule below is one specific case of this general principle — apply the same reasoning to every other property, not only image dimensions.
+
 ### CRITICAL — resetting multi-zone/magazine layouts for mobile consistency
 If the desktop CSS has DIFFERENT custom image sizes per zone via ID selectors (e.g. a featured slot at 300px wide, a grid zone at 33% width images, a compact list zone with 80px thumbnails — see Patterns G, H, I), simply adding `.hero { flex:1 1 100% }` and `.hero img { width:100% }` at your mobile breakpoint is NOT enough. Each zone's ID-specific image rule (e.g. `:is(#dianomi_ad_5, #dianomi_ad_6) img { width: 80px }`) still has equal or higher specificity and will often continue to apply, producing an inconsistent mix of image sizes stacked vertically on mobile — some full width, some still tiny 80px thumbnails floating oddly in a single column.
 
