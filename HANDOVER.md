@@ -462,6 +462,29 @@ Three connected problems, discovered and fixed in sequence over one session. Doc
 
 ---
 
+## Session Log — 2026-07-09 (continued): Header Html custom-script preservation — attempted, reverted
+
+**Context:** while testing a hand-written infinite-scroll carousel script pasted directly into Header Html, discovered that `rebuildHeaderFromToggles()` completely overwrites Header Html (`setHeader(buildHeaderHtml(opts))`) any time a Logo/YAC/Line2/Action toggle changes, with zero awareness of hand-added content — silently deleting any custom script pasted in there.
+
+**Attempted fix:** added `extractCustomScripts(headerHtml)` — a regex-based scan (`/<script[^>]*>[\s\S]*?<\\?\/script>/gi`) that finds any `<script>` block NOT matching the tool's own `ACTION_SCRIPT`, and re-appends those blocks after `rebuildHeaderFromToggles()` rebuilds the header from scratch.
+
+**Result: broke the tool.** Shortly after this went live, the CSS editor panel started displaying a large block of literal JavaScript source text (client-side function code — `extractCustomScripts`, `applyUnitTypePreset`, `convertToIABLocal`, `convertToResponsiveLocal`, etc.) instead of actual CSS. Confirmed via incognito window that it wasn't a browser cache issue.
+
+**Investigation (inconclusive on exact mechanism, but conclusive on the fix):**
+- Checked the live GitHub source directly — no duplicated code, no function body accidentally living inside a string constant anywhere (`grep -c` confirmed every affected function appears exactly once, as real code)
+- Checked `vercel.json` routing — `/api/(.*)` and `/(.*)` are correctly separated, ruled out API calls accidentally being routed to serve `public/index.html`'s raw contents
+- Checked the raw `<textarea id="ta-css">` markup — confirmed empty, ruled out a static-HTML source of the garbled content
+- **Did not** get to see actual browser console errors before the person asked to revert, so the precise runtime mechanism that caused the garbled CSS panel is still unconfirmed
+- **Reverting the fix resolved the issue** — confirms the custom-script preservation change was the cause, even without a fully diagnosed mechanism. Revert was a clean, complete rollback (verified: the reverted file's git SHA exactly matches the pre-fix commit, `01dbcc4341`, so nothing else was altered in the process)
+
+**Current status: reverted, NOT implemented.** `rebuildHeaderFromToggles()` is back to its original behavior — it silently overwrites Header Html on every toggle change, exactly as it did before this session. The underlying problem (hand-added scripts in Header Html get silently deleted on any toggle click) is UNFIXED and still real.
+
+**For whoever picks this up next:** don't just re-apply the same `extractCustomScripts` regex-based approach without first understanding why it broke the CSS panel — the two features (Header Html content and the CSS editor) shouldn't have any code path connecting them, which is exactly why the failure mode was so surprising and worth investigating properly before a second attempt, rather than assuming it was a fluke. Worth getting actual browser console output during the failure state before trying again, and possibly worth testing the regex change in isolation (e.g. via `node -e` against a captured sample of the actual Header Html content) before wiring it back into the UI.
+
+**Workaround in the meantime:** don't click any Header Html toggle after pasting a custom script — set toggles first, paste the script last, and leave toggles untouched afterward. If a toggle must change, re-paste the script manually afterward.
+
+---
+
 ## What Gemini Does and Doesn't Learn
 
 **Gemini does NOT learn between API calls.** There is no training happening. Each call is completely stateless. The "feedback loop" is just a multi-turn conversation within one session — Gemini can see prior exchanges within a single HTTP connection, but all context is gone when the session ends.
