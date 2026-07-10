@@ -462,7 +462,39 @@ Three connected problems, discovered and fixed in sequence over one session. Doc
 
 ---
 
-## Session Log — 2026-07-09 (continued): CSS-only swipe carousel — hand-written, added as two presets
+## Session Log — 2026-07-10: `body` overflow default corrected platform-wide — iframe height-sync race condition
+
+**Context:** debugging a live scrollbar glitch on unit 109944 (not a carousel — a plain 4-column flex grid). Traced through the actual Dianomi iframe embed template HTML (`/img/a/pss/5452/10.css` wrapper page) and found the real cause:
+
+```js
+function getHeight() {
+  setTimeout(function(){
+    var frameID = document.getElementsByClassName('wrapper')[0].id
+    window.parent.postMessage(document.body.scrollHeight + '-' + frameID, "*");
+  }, 500);
+}
+document.addEventListener("DOMContentLoaded", getHeight);
+window.addEventListener('resize', getHeight);
+```
+
+This is the mechanism behind `responsiveHeight: 1` in a unit's YAML config — it measures `document.body.scrollHeight` 500ms after `DOMContentLoaded` and tells the parent page to resize the iframe to match. **The bug:** `DOMContentLoaded` fires once HTML is parsed, not once images/fonts have finished loading and the page has its final layout. With 4 ad images (up to 700×600 each) plus two Google Fonts families, real-world load time frequently exceeds the fixed 500ms guess. If content grows taller after that measurement, the iframe is already locked to the earlier, shorter height. With `overflow: visible` on `body` (which is what `dianomi-skill.md` previously instructed as correct — see rule 8 history below), that extra content spills out and produces a visible scrollbar on the live page.
+
+**This is a platform-level template timing bug, not something fixable from unit CSS.** The real fix — the embed template also listening for `window.load` (fires only once images/fonts are done) in addition to `DOMContentLoaded` — lives in Dianomi's iframe template, out of scope for Subtype. What IS in scope: making `overflow-x:hidden; overflow-y:hidden` the default on `body` so the symptom (a visible scrollbar on the ad unit) never appears, even though the underlying height-measurement race still happens. This clips rather than exposes the overflow — not a real fix, a defensive workaround, but the right tradeoff since a broken-looking scrollbar on a live ad unit is worse than silently clipped edge content.
+
+**Confirmed fix, applied person-side first:** adding `overflow-x: hidden; overflow-y: hidden;` to `body` on the live unit resolved the visible scrollbar.
+
+### Corrected platform-wide, in every file that touches `body`'s overflow
+
+**Important — this reverses previous guidance.** `dianomi-skill.md` rule 8 previously said `body` should be `overflow:visible`, written for a different, still-valid reason (legacy units had `height:85px; overflow:hidden` which clipped tall content). That reasoning for `height:auto` still holds — never hardcode a fixed body height. But the `overflow` value was wrong given what we now know about the iframe race condition. Rule 8 has been rewritten in place with the corrected value and the full reasoning above, rather than left as a conflicting duplicate rule.
+
+- **`dianomi-skill.md`** — rule 8 in "CRITICAL CSS RULES" rewritten; the "`body` height override" note (~line 646) updated to match; all 5 body-rule occurrences inside "PRODUCTION CSS EXAMPLES" changed from `overflow: visible` to `overflow-x: hidden; overflow-y: hidden` (the 2 occurrences on `.wrapper`, a different element with no connection to this bug, were deliberately left untouched)
+- **`generate-css.js`** — all 8 few-shot reference CSS examples' `body` rules corrected (the 3 `.wrapper`-level `overflow:visible` occurrences across REF_CSS_1–3 left untouched, again a different element); added as an explicit line in FINAL REMINDERS so it's reinforced at generation time, not just inherited from the reference examples
+- **`refine-css.js`** — added to the "always required" rule list, with an explicit instruction to correct `overflow:visible` on `body` even if the person's feedback doesn't mention it, since this is a defensive default that should self-heal during any refine pass, not just when directly requested
+- **`public/index.html`** — all 5 `CP` preset `body` rules updated (`flex-baseline`, `list-300x600`, `landscape-970x250`, `carousel-970x250`, plus a `body` rule added to `carousel-peek`, which previously had none at all)
+
+**Note on a known tradeoff, called out in the corrected skill.md rule:** any element intentionally positioned to bleed slightly outside `body`'s box (e.g. a logo with a small negative `right` offset, which the actual unit 109944 CSS the person shared during debugging had on `.sub-line2`) will now get silently clipped at that edge instead of visibly overflowing. Not a regression worth blocking on, but worth remembering if a future screenshot shows a decorative element deliberately overlapping a unit's edge — check it isn't getting clipped by this default.
+
+---
 
 **Context:** after pausing the JS/infinite-scroll direction, continued with the pure-CSS scroll-snap carousel — this one never touched Header Html or any script, so it carried none of the risk from the reverted fix above. Written by hand directly against the real Dianomi DOM (not generated by Gemini), since the technique itself was already known rather than something needing visual interpretation from a screenshot.
 
@@ -591,6 +623,7 @@ Both use `.sub-line2`. Differentiate by `width` on `.sub-line2 img.dianomi-lg`:
 9. **`applyReadOnlyState()` call from `setUnitTypeUI()`** *(added 2026-07-09)* — must stay wired so every tab switch re-evaluates read-only state. If a new code path calls `setCSS()` + changes `S.unitType` without going through `setUnitTypeUI()`, the editor's readOnly flag can go stale and a locked tab could become editable.
 10. **Refine's auto-redirect to Custom on locked units** *(added 2026-07-09)* — in `refineCSS()`, the check `if(effectiveLockedUnit() && S.unitType !== 'custom')` must run before the API call is made. Removing it would let feedback be sent against a read-only IAB/Responsive preview, which would either silently do nothing useful or (worse) get applied somewhere the person didn't intend.
 11. **`changeObj.origin === 'setValue'` check in the CodeMirror change handler** *(added 2026-07-09)* — this is what stops IAB/Responsive/Original's programmatic `setCSS()` calls from being mistaken for hand-edits and corrupting `customCSS`. Do not remove or weaken this check.
+12. **`body { overflow-x: hidden; overflow-y: hidden }` — do NOT revert to `overflow: visible`** *(added 2026-07-10)*. This looks like it should be the more "permissive"/safer choice, and was in fact the previous guidance (see rule 8 in `dianomi-skill.md`) — but `overflow:visible` is what causes a visible scrollbar on live units due to the iframe height-sync race condition (see 2026-07-10 session log below). `height:auto` should still never be hardcoded to a fixed px value, but `overflow` must stay `hidden` on both axes.
 
 ---
 
