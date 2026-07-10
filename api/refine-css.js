@@ -52,6 +52,7 @@ STRICT RULES:
   - Pseudo-elements (::before, ::after) are fine for decorative marks
   - Group multiple ID overrides with :is(#dianomi_ad_1, #dianomi_ad_2) instead of repeating full chains
   - If the CSS has any breakpoints AND uses individually-targeted selectors on desktop (#dianomi_ad_N, .first, .last, :nth-child()), verify every one of them is explicitly re-declared inside each breakpoint where its properties need to change — a generic .hero rule does not reach a more specific selector
+  - body must be height: auto; overflow-x: hidden; overflow-y: hidden; — NEVER overflow: visible (Dianomi's iframe embed measures body height before images/fonts necessarily finish loading; overflow:visible lets late-arriving content spill out and produce a visible scrollbar on the live page, confirmed in production). If you see overflow: visible on body in the current CSS for any reason, correct it even if the feedback doesn't mention it.
 
 WHY THESE RULES EXIST (so you apply them correctly, not just mechanically):
 - .dianomi_provider_short needs !important because Dianomi injects style="display:inline" on it at runtime, which beats a plain class rule
