@@ -160,7 +160,7 @@ This HTML is fixed. You cannot add, remove or reorder elements. CSS is the only 
 
 7. **No `@import` or `@font-face` in CSS output** — fonts are loaded via `<link>` tags in the Header Html field. CSS just references `font-family` by name.
 
-8. **`body` should be `height:auto; overflow:visible`** — many legacy units had `height:85px; overflow:hidden` which clips content. Always override this.
+8. **`body` height:auto stays; `overflow` must be `overflow-x:hidden; overflow-y:hidden`, NOT `overflow:visible`** *(updated 2026-07-10)*. `height:auto` is still correct — many legacy units had `height:85px` which clips content, so never hardcode a fixed body height. But `overflow` needs correcting: Dianomi's iframe embed template measures `document.body.scrollHeight` on `DOMContentLoaded` (500ms after) to tell the parent page how tall to make the iframe, but ad images and web fonts frequently haven't finished loading/laying out by that point. If the real content grows taller after that measurement — extra image height, a font swap reflowing text — the iframe is already locked to the earlier, shorter height, and with `overflow:visible` that extra content spills out and produces a visible scrollbar on the ad unit (confirmed in production on unit 109944, 2026-07-10). `overflow-x:hidden; overflow-y:hidden` clips that overflow silently instead of showing a broken-looking scrollbar. This is a workaround for a platform-level template timing bug, not a real fix — the actual fix would be the embed template also listening for `window.load` (fires after images/fonts finish) in addition to `DOMContentLoaded`, but that lives in Dianomi's iframe template, not in per-unit CSS, so it's out of scope here. **Known tradeoff:** any element intentionally positioned to bleed slightly outside `body`'s box (e.g. a logo with a small negative `right` offset) will now get silently clipped instead of visibly overflowing — check for this if a screenshot shows a decorative element deliberately overlapping the unit's edge.
 
 9. **For image/text reorder**: both `img` and `.text` are children of `a.dianomihref`. Reordering uses `order` on that flex container:
    - Text above image: `.text { order:1 }` `img { order:2; margin-top:12px }`
@@ -305,7 +305,7 @@ body {
   margin: 0;
   width: 100%;
   height: auto;
-  overflow: visible;
+  overflow-x: hidden; overflow-y: hidden;
   box-sizing: border-box;
 }
 
@@ -415,7 +415,7 @@ body {
 ```css
 body {
   margin: 0; padding: 0; width: 100%;
-  height: auto; overflow: visible;
+  height: auto; overflow-x: hidden; overflow-y: hidden;
   box-sizing: border-box;
   font-family: 'Inter', sans-serif;
   background: #fff;
@@ -516,7 +516,7 @@ body {
   padding: 0;
   width: 100%;
   height: auto;
-  overflow: visible;
+  overflow-x: hidden; overflow-y: hidden;
   box-sizing: border-box;
 }
 
@@ -644,12 +644,12 @@ The Dianomi logo/attribution block (`.sub-line2`) is a direct child of `.wrapper
 - In multi-ad list units, `.sub-line2` is wrapped inside `.dianomi-wt` but still sits at wrapper level
 
 ### `body` height override
-Legacy units had `body { height:85px; overflow:hidden }` which clips content on taller units. Always reset:
+Legacy units had `body { height:85px; overflow:hidden }` which clips content on taller units — `height` must always reset to `auto`. `overflow` needs a specific value too, not `visible`:
 ```css
-body { height:auto; overflow:visible; }
+body { height:auto; overflow-x:hidden; overflow-y:hidden; }
 ```
 
-**Why:** These height values were set when every unit was a fixed 85px banner. As units grew taller (portrait singles, multi-ad lists), the clip became a bug. The reset is now always included.
+**Why:** `height:auto` fixes the old fixed-85px-banner clipping bug — as units grew taller (portrait singles, multi-ad lists), a hardcoded height became a bug, so it always resets to `auto`. `overflow-x:hidden; overflow-y:hidden` is a separate, newer fix (2026-07-10, see rule 8 in "CRITICAL CSS RULES" above) for a different problem: Dianomi's iframe embed measures `body.scrollHeight` before images/fonts necessarily finish loading, so the iframe can get locked to a too-short height and show a scrollbar once the real content grows past it. Don't use `overflow:visible` here even though that seems like the more "permissive" choice — it's actually what causes the visible scrollbar/spillover in that scenario.
 
 ### Border full-width breakout
 When `.wrapper` has `padding:16px`, borders on `.hero` don't span full width. Break out:
@@ -1100,7 +1100,7 @@ body {
   padding: 0;
   width: 100%;
   height: auto;
-  overflow: visible;
+  overflow-x: hidden; overflow-y: hidden;
   box-sizing: border-box;
   background: #f5f5f5;
 }
