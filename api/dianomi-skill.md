@@ -1539,136 +1539,133 @@ Besides IAB Fixed and Responsive, there is a third Unit Type: **Custom**. This s
 - Do not attempt to "normalize" or "clean up" the breakpoint structure into a standard IAB/Responsive pattern unless explicitly asked
 - Treat each existing `@media` block as intentional and precisely tuned from a real screenshot, not as a rough draft
 
----
 
 ## VIDEO / PODCAST UNIT — COMPLETELY SEPARATE UNIT TYPE
 
 **CRITICAL — read before writing a single selector:** the video/podcast unit is NOT a smartad unit. It uses a completely different DOM structure, different embed architecture, different CSS selectors, and different JS (Flowplayer). Every selector documented above (`.wrapper`, `.hero`, `.subhero`, `.dianomihref`, `.maintext`, `.dianomi_provider_short`, `.line2`, `.sub-line2`, `.action`) targets the smartad DOM and **does not exist** in a video/podcast unit. Writing those selectors in a video/podcast CSS file produces a file that silently targets nothing.
 
-### WHY IT'S SEPARATE
+### WHY IT IS A SEPARATE EMBED ARCHITECTURE
 
-Dianomi runs two distinct embed architectures. The smartad unit is a `<div>` injected directly into the publisher's page DOM, with Dianomi's JS writing `.hero` children into it at runtime. The video/podcast unit is a separate `<iframe>` containing its own fully self-contained HTML document — Flowplayer, cover art, audio source, and all — assembled by Dianomi's backend. The partner CSS file (the file Subtype generates) is loaded inside that inner iframe document as one `<link>` tag among several. This means the CSS file must target the DOM elements that exist inside that iframe, not the smartad DOM elements on the outer page.
+Dianomi runs two distinct embed architectures. The smartad unit is a div injected directly into the publisher page DOM, with Dianomi's JS writing .hero children into it at runtime. The video/podcast unit is a separate iframe containing its own fully self-contained HTML document — Flowplayer, cover art, audio source, and all — assembled by Dianomi's backend. The partner CSS file (the file Subtype generates) is loaded inside that inner iframe document, AFTER a base stylesheet Dianomi controls (`dianomi-video.css`), as one link tag among several. This means: (1) the CSS file must target the DOM elements that exist inside that iframe, not smartad elements, and (2) the partner CSS only needs to override what the base stylesheet doesn't already handle correctly — writing CSS that fights the base stylesheet's structural assumptions produces broken results even when the selectors are correct.
 
-### THE REAL DOM STRUCTURE (confirmed from live unit, July 2026)
+There are two nested iframes in the live embed: an outer wrapper iframe, then an inner document iframe — the one that contains `.dianomi_video` and where the CSS applies. Confirmed via DevTools, July 2026.
+
+### THE REAL BASE STYLESHEET — dianomi-video.css (fetched and verified 2026-07-15)
+
+**This is the single most important correction in this section.** Earlier documentation in this file was written from DOM inspection alone, without the base stylesheet — and made several wrong assumptions about default behavior that this fetch corrected. Subtype's video preview template (`buildVideoHTML()` in `index.html`) now loads this exact base stylesheet before the person's CSS, mirroring production load order exactly, so what you see in Subtype's preview should now match production.
+
+**Corrected facts, with what was wrong before:**
+
+1. **`.dianomi-video-background` is a BLURRED, DARKENED, SCALED ambient backdrop layer — not the crisp cover image.** Real CSS: `position:absolute; width:100%; height:calc(100% - 30px); background-size:cover; background-position:center center; filter:blur(5px) brightness(0.7); transform:scale(1.1);`. (Previously documented as if it were the sharp foreground image — wrong.) This is actually a nice, modern "now playing" aesthetic already built in for free — lean into it rather than fighting it with `filter:none`.
+
+2. **The actual sharp/crisp cover art lives on `.flowplayer` itself**, via an inline `background-image` style Dianomi's JS sets at runtime. `background-size` for audio players is FORCED by base CSS: `.flowplayer.is-audio-player:not(.ad-linear) { background-size: contain !important; }`. You CANNOT make it `cover` without also writing `!important` in the partner CSS — and doing so fights the base design intent (audio cover art is typically square; `contain` avoids cropping it). Design around `contain`, don't fight it.
+
+3. **Aspect ratio comes directly from `.dianomi-video-body { aspect-ratio: 16/9; }`** in the base stylesheet — not a padding-top trick on a child element. Do not add your own aspect-ratio hack on `.dianomi-video-background`; the parent already handles it.
+
+4. **`.dianomi-video-overlay.podcast-overlay` is a 60px bar pinned to the BOTTOM — not a full-height centered overlay.** Real CSS: base `.dianomi-video-overlay { width:100%; height:100%; position:absolute; z-index:1000; display:none; flex-direction:column; justify-content:center; align-items:center; background-color:rgba(0,0,0,0.8); }`, then more specifically overridden by `div.dianomi-video-overlay.podcast-overlay { display:flex; height:60px; bottom:0px; }`. The inner `div[class^="dianomi-video-overlay--"]` elements default to a horizontal-ish compact layout inside that 60px strip, not a large centered icon+label stack. Style this as a horizontal bar (icon + "Play Podcast" label side by side), not a full-image centered overlay — that was the wrong assumption in the original mockups and caused the play icon to render in the wrong place when Subtype's preview didn't yet load this base stylesheet.
+
+5. **The large center play/pause button is hidden by base CSS with `!important`:** `.fp-switch .fp-play, .fp-switch .fp-pause, .fp-left-zone, .fp-right-zone { display: none !important; }`. Any design assuming a big center play circle needs an explicit `!important` override, and doing so fights the base design intent (the `.podcast-overlay` bottom bar is meant to be the sole play trigger before playback starts; once playing, only the small bottom `.fp-controls` bar remains — no center button by design).
+
+6. **`#dianomi-audio-wave` covers the FULL area at low opacity as ambient texture**, not a small strip: `position:absolute; width:100%; height:100%; z-index:10; opacity:0.15;`. We still always hide it (`display:none !important`) since we replace it with our own `.dw-bar` waveform, but the original scale/purpose was different from initially documented.
+
+7. **`.dianomi-audio .fp-controls` already gets a translucent black background from base CSS**: `background-color: rgba(0,0,0,0.5); z-index:100;`. Don't re-declare a background on `.flowplayer.is-audio-player` itself trying to achieve this — target `.fp-controls` if you need to adjust it, or leave it alone since base already provides a sensible default.
+
+### THE REAL DOM STRUCTURE (confirmed from live unit 91470, July 2026)
 
 ```
-div.dianomi_video                          ← outermost container
-  div.dianomi-text-wrapper                 ← entire text zone (above the player)
-    div.dianomi-header-container           ← header row: label left, CTA right
-      div.dianomi-header-text              ← "Sponsored Podcast by:" + advertiser logo
-        span                               ← literal text "Sponsored Podcast by:"
-        div.header-image-container         ← advertiser logo wrapper
-          img                              ← logo image
+div.dianomi_video                              outermost container (base: position:relative, border, aspect handled by children)
+  div.dianomi-text-wrapper                     entire text zone, sits ABOVE the player (base: border-bottom divider)
+    div.dianomi-header-container               header row: label left, CTA right
+      div.dianomi-header-text                  "Sponsored Podcast by:" + advertiser logo
+        span                                   literal text "Sponsored Podcast by:"
+        div.header-image-container             advertiser logo wrapper
+          img                                  logo image (src set by Dianomi)
       div.dianomi-cta-text-container
         div.dianomi-cta-text
-          a                                ← "Listen further" / "Listen Now" CTA link
+          a                                    "Listen further" / "Listen Now" CTA link
     div.dianomi-main-container
       div.dianomi-main-text
-        a                                  ← episode title (clickable, links to landing page)
+        a                                      episode title (clickable link to landing page)
 
-  div.dianomi-video-body.dianomi-audio     ← the player area
-    div.dianomi-video-overlay.podcast-overlay   ← "Play Podcast" click-to-start layer
+  div.dianomi-video-body.dianomi-audio         base: aspect-ratio:16/9, overflow:hidden, position:relative
+    div.dianomi-video-overlay.podcast-overlay  base: 60px bottom bar, NOT full-height (see correction #4 above)
       div.dianomi-video-overlay--replay
-        div > img                          ← play icon
-        div                                ← "Play Podcast" label text
-    div.dianomi-video-background           ← cover art (background-image set inline by Dianomi JS)
-    img#dianomi-audio-wave                 ← Dianomi's own animated GIF waveform (hide this)
-    div.flowplayer.is-audio-player         ← Flowplayer player (real audio/video player)
-      video.fp-engine                      ← actual <video> element playing the mp3
-      div.fp-ratio                         ← aspect ratio spacer (padding-top: 56.25%)
-      flowplayer-ui.fp-ui                  ← all controls live here as custom elements
-        flowplayer-control.fp-controls
-          flowplayer-small-play-icon       ← bottom-bar play button
-          flowplayer-small-pause-icon      ← bottom-bar pause button
-          flowplayer-elapsed-time          ← current timestamp
-          flowplayer-timeline-bar.fp-timeline.fp-bar  ← progress bar
-            div.fp-progress.fp-color       ← played portion (width% = progress)
-          flowplayer-control-duration      ← total duration
-          flowplayer-volume-control        ← volume slider
+        div > img                              play icon image
+        div                                    "Play Podcast" label text
+    div.dianomi-video-background               BLURRED ambient backdrop layer (see correction #1) — not the sharp image
+    img#dianomi-audio-wave                     Dianomi's animated GIF, full-area low-opacity — ALWAYS HIDE THIS
+    div.flowplayer.is-audio-player             the actual player — sharp cover art lives here via inline background-image (see correction #2)
+      video.fp-engine                          actual audio element (src = .mp3 URL)
+      div.fp-ratio                             aspect ratio spacer (real Flowplayer CSS handles this, not loaded in Subtype preview but base .flowplayer already has aspect-ratio:16/9)
+      flowplayer-ui.fp-ui
+        flowplayer-control.fp-controls.fp-togglable    base: rgba(0,0,0,.5) background already applied
+          flowplayer-small-play-icon.fp-small-play
+          flowplayer-small-pause-icon.fp-small-pause
+          flowplayer-elapsed-time.fp-elapsed
+          flowplayer-timeline-bar.fp-timeline.fp-bar
+            div.fp-progress.fp-color           width% reflects playback progress (base: red #ee3224 by default — override this)
+            div.fp-buffer                      width% reflects buffered amount
+          flowplayer-control-duration.fp-duration
+          flowplayer-volume-control
+            flowplayer-volume-icon.fp-volume-mute-unmute
+            flowplayer-volume-bar.fp-volume
 
-  div.footer                               ← "Podcast by Dianomi" footer bar
+  div.footer                                   "Podcast by Dianomi" footer bar (base: border-top divider)
     div.footer-logo
-    button.openclose                       ← × close button
+      a > img                                  Dianomi logo
+    button.openclose                           x close button (base: absolute bottom-right)
 ```
 
-### FLOWPLAYER PLAYBACK STATE CLASSES
+### FLOWPLAYER PLAYBACK STATE CLASSES — THE KEY CSS HOOK
 
-Flowplayer adds and removes these classes on the `.flowplayer` div automatically during playback — no JS needed on our side:
+Flowplayer adds and removes these classes on the .flowplayer div automatically during real playback. No JS is needed on our side — we just write CSS targeting them:
 
-- `is-paused` — audio is loaded but stopped (default state before first play, and after pause)
-- `is-playing` — audio is actively playing
-- `is-starting` — initial loading state before Flowplayer has initialized fully (also no `is-paused` yet)
-- `is-audio-player` — always present on podcast/audio units (vs `is-video-player` for video)
-- `is-touch-device`, `is-mobile` — present on mobile viewports
-- `has-poster` — cover art background-image has been set
+- is-paused: audio stopped (present after first play then pause; NOT present during initial load)
+- is-playing: audio actively playing
+- is-starting: initial state before Flowplayer initializes (neither is-paused nor is-playing yet)
+- is-audio-player: always present on podcast/audio units — also triggers base CSS's forced `background-size:contain !important`
+- is-touch-device / is-mobile: present on mobile viewports
+- has-poster: cover art background-image has been set by Dianomi's JS
 
-**The key CSS hook:** `.flowplayer.is-playing` and `.flowplayer.is-paused` let you write CSS that genuinely reacts to whether audio is playing or stopped — without writing a single line of JS. This is the only real-time state available from pure CSS on these units.
+`.flowplayer.is-playing .your-element` and `.flowplayer.is-paused .your-element` are the primary hooks for anything that should react to real playback state.
 
-### KEY SELECTORS AND WHAT THEY CONTROL
+### SELECTOR QUICK REFERENCE
 
-```css
-/* Outer container — background, border-radius, overflow */
-.dianomi_video { }
-
-/* Text zone — padding, background, font family */
-.dianomi-text-wrapper { }
-
-/* Header row — flex layout, alignment */
-.dianomi-header-container { }
-
-/* "Sponsored Podcast by:" label */
-.dianomi-header-text { }
-
-/* Advertiser logo inside the header */
-.header-image-container img { }
-
-/* CTA button — "Listen further" / "Listen Now" */
-.dianomi-cta-text a { }
-
-/* Episode title link */
-.dianomi-main-text a { }
-
-/* Player area — position:relative for absolute children */
-.dianomi-video-body { }
-
-/* Cover art — background-image set inline by Dianomi JS, we control
-   sizing, aspect ratio, border-radius, and overlays via ::before/::after */
-.dianomi-video-background { }
-
-/* Click-to-start overlay (visible before first play) */
-.dianomi-video-overlay { }
-.dianomi-video-overlay--replay img { }    /* play icon */
-.dianomi-video-overlay--replay div { }   /* "Play Podcast" label */
-
-/* Dianomi's own animated GIF waveform — always hide this */
-#dianomi-audio-wave { display: none !important; }
-
-/* Flowplayer container — styles the player chrome area */
-.flowplayer.is-audio-player { }
-
-/* Playing-state CSS — reacts to real Flowplayer class toggle */
-.flowplayer.is-playing .your-element { }
-.flowplayer.is-paused .your-element { }
-
-/* Flowplayer controls (all are custom HTML elements, not divs) */
-flowplayer-control.fp-controls { }
-flowplayer-timeline-bar.fp-timeline { }
-.fp-progress.fp-color { }                 /* width% = playback progress */
-
-/* Footer — almost always hidden in custom designs */
-.footer { display: none; }
-.openclose { display: none; }
+```
+.dianomi_video                 outer container — border, overflow (aspect ratio NOT here — it's on .dianomi-video-body)
+.dianomi-text-wrapper          text zone — padding, background, font family
+.dianomi-header-container      header row — flex layout, alignment
+.dianomi-header-text           "Sponsored Podcast by:" label
+.header-image-container img    advertiser logo inside the header
+.dianomi-cta-text a            CTA button (Listen further / Listen Now)
+.dianomi-main-text a           episode title link
+.dianomi-video-body            player area — base already sets aspect-ratio:16/9, position:relative, overflow:hidden
+.dianomi-video-background      BLURRED backdrop layer — tint/darken it, don't remove the blur unless intentional
+.dianomi-video-overlay         60px BOTTOM bar when combined with .podcast-overlay — not full-height
+.dianomi-video-overlay--replay img     play icon inside the overlay bar
+.dianomi-video-overlay--replay div    "Play Podcast" label inside the overlay bar
+#dianomi-audio-wave            Dianomi's full-area GIF waveform — always display:none !important
+.flowplayer.is-audio-player    the actual player — sharp cover art via inline background-image, size forced to contain
+.flowplayer.is-playing         playing state — animate custom waveform, change button appearance
+.flowplayer.is-paused          paused state — static waveform
+.fp-controls                   base already gives this rgba(0,0,0,.5) background — don't re-declare elsewhere
+.fp-progress.fp-color          progress fill — base defaults to red #ee3224, override this color
+.footer                        footer bar — almost always display:none in custom designs
+.openclose                     close button — almost always display:none
 ```
 
-### THE CSS WAVEFORM VISUALISER — WHY AND HOW
+### THE CSS WAVEFORM VISUALISER — ARCHITECTURE AND REASONING
 
-Dianomi's default podcast unit shows `img#dianomi-audio-wave` — a static animated GIF showing a simple waveform. It has no connection to actual audio levels, doesn't react to play/pause state, and can't be styled meaningfully. We hide it.
+Dianomi's default podcast unit shows img#dianomi-audio-wave — a full-area, low-opacity static GIF with no connection to actual audio levels and no play/pause reaction. We hide it and replace it with injected div.dw-bar elements.
 
-The replacement is a set of `<div class="dw-bar">` elements injected by a small Header Html `<script>` — one script tag, no audio API, just DOM insertion. Each bar gets a pre-defined height (representing a static waveform shape), a `--dur` CSS custom property (animation duration), and a `--delay` CSS custom property (animation phase offset). The CSS then animates them using `.flowplayer.is-playing .dw-bar` — so the waveform genuinely reacts to Flowplayer's own class toggle. When paused, bars are static. When playing, they animate.
+WHY inject via Header Html script rather than pseudo-elements or existing elements:
+- CSS pseudo-elements (::before, ::after) only give two elements per selector — not enough bars for a convincing waveform shape
+- The existing .fp-volume ticks are Flowplayer's own elements and cannot be repurposed
+- A Header Html script tag injects the bars into .dianomi-video-body at DOM-ready time, before any user interaction
+- Each bar gets an individual height (the static waveform shape) and CSS custom properties --dur and --delay for staggered animation timing
+- The CSS @keyframes animation on .flowplayer.is-playing .dw-bar fires automatically when Flowplayer adds is-playing — zero audio API, zero event listeners from our side
 
-**Why a Header Html script rather than pseudo-elements:** CSS pseudo-elements (`::before`, `::after`) only give you two elements per selector — not enough for a convincing waveform. The script approach gives full control over bar count, individual heights, and per-bar animation timing with zero coupling to any audio API.
-
-**The Header Html injection script (standard, use for all video/podcast units):**
+STANDARD INJECTION SCRIPT (goes in Header Html, not in the CSS file):
 ```html
 <script>
 (function(){
@@ -1695,19 +1692,22 @@ The replacement is a set of `<div class="dw-bar">` elements injected by a small 
 </script>
 ```
 
+**Position the waveform to sit ABOVE the 60px bottom overlay/controls bar** (e.g. `bottom: 68px` or higher), not overlapping it — the bottom ~60-70px of `.dianomi-video-body` is reserved for the podcast-overlay bar (before play) and `.fp-controls` (during/after play).
+
 ### CRITICAL DIFFERENCES FROM SMARTAD CSS
 
 | Topic | SmartAd | Video/Podcast |
 |---|---|---|
 | Outermost element | `.wrapper` | `.dianomi_video` |
 | Ad slot element | `.hero` | no equivalent |
-| Image | `.hero img` | `.dianomi-video-background` (background-image, not `<img>`) |
+| Image | `.hero img` (actual img element) | `.flowplayer` inline background-image (sharp, forced `contain`) + `.dianomi-video-background` (blurred backdrop, separate layer) |
 | Headline | `.maintext` | `.dianomi-main-text a` |
 | Provider | `.dianomi_provider_short` | `.dianomi-header-text` |
 | CTA | `.action` | `.dianomi-cta-text a` |
 | Play state | n/a | `.flowplayer.is-playing` / `.is-paused` |
 | Logo | `.sub-line2 img.dianomi-lg` | `.header-image-container img` or `.footer-logo img` |
 | Heading label | `div.line2` | `.dianomi-header-text span` |
+| Aspect ratio | manual (image aspect-ratio CSS) | base CSS already sets `.dianomi-video-body { aspect-ratio:16/9 }` |
 
 ### BODY RULE FOR VIDEO/PODCAST
 
@@ -1725,16 +1725,11 @@ body {
 }
 ```
 
-### PRODUCTION CSS EXAMPLE: DARK NAVY PODCAST DIRECTION
+### PRODUCTION CSS EXAMPLE: DARK NAVY PODCAST DIRECTION (corrected 2026-07-15, verified against real base stylesheet)
 
-This is the production-ready CSS for the dark direction developed July 2026. The waveform bars need the Header Html injection script above.
+This is the production-ready CSS for the dark direction, corrected after live testing revealed the original version fought the base stylesheet's structural assumptions (see corrections #1-6 above). It embraces the blurred-backdrop + contained-sharp-image pattern and the bottom-bar overlay structure rather than fighting them. Needs the Header Html injection script above.
 
 ```css
-@keyframes dw-beat {
-  0%, 100% { transform: scaleY(0.1); }
-  50% { transform: scaleY(1); }
-}
-
 body {
   margin: 0;
   padding: 0;
@@ -1747,46 +1742,43 @@ body {
   background: #0C1520;
 }
 
-.dianomi_video {
-  background: #0C1520;
-  overflow: hidden;
+@keyframes dw-beat {
+  0%, 100% { transform: scaleY(0.1); }
+  50% { transform: scaleY(1); }
 }
 
-.dianomi-video-body {
-  position: relative;
+.dianomi_video {
+  background: #0C1520;
+  border: none;
 }
 
 .dianomi-video-background {
-  width: 100%;
-  padding-top: 56%;
-  background-size: cover;
-  background-position: center;
   background-color: #162535;
-  position: relative;
 }
 
-.dianomi-video-background::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
+.flowplayer.is-audio-player {
+  background-color: transparent;
 }
 
-.dianomi-video-overlay {
-  z-index: 4;
+.dianomi-video-overlay.podcast-overlay {
+  background: rgba(0, 0, 0, 0.75);
+  flex-direction: row;
+  gap: 8px;
+}
+
+.dianomi-video-overlay--replay {
+  flex-direction: row !important;
+  gap: 8px;
 }
 
 .dianomi-video-overlay--replay img {
-  width: 44px;
-  height: 44px;
+  max-width: 28px !important;
   filter: brightness(0) invert(1);
-  opacity: 0.9;
 }
 
 .dianomi-video-overlay--replay div:last-child {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  margin-top: 6px;
+  color: #fff;
   font-family: 'Roboto', sans-serif;
 }
 
@@ -1796,21 +1788,21 @@ body {
 
 .dw-wave {
   position: absolute;
-  bottom: 44px;
+  bottom: 68px;
   left: 12px;
   right: 12px;
-  height: 44px;
+  height: 32px;
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  z-index: 2;
+  z-index: 50;
 }
 
 .dw-bar {
   flex: 1;
   border-radius: 2px 2px 0 0;
   transform-origin: bottom;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   transition: background 0.3s;
 }
 
@@ -1819,44 +1811,35 @@ body {
   background: #1D9E75 !important;
 }
 
-.flowplayer.is-audio-player {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 3;
-  background: rgba(0, 0, 0, 0.72);
-}
-
 .dianomi-text-wrapper {
   padding: 12px 14px 14px;
+  border-bottom: none;
 }
 
 .dianomi-header-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  border-bottom: none;
+  padding: 0 0 10px 0;
 }
 
 .dianomi-header-text {
   font-size: 9px;
   color: rgba(255, 255, 255, 0.35);
   letter-spacing: 0.4px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
 }
 
 .header-image-container img {
-  height: 14px;
-  width: auto;
   opacity: 0.55;
   filter: brightness(10);
+  padding: 0;
+}
+
+.dianomi-cta-text {
+  border: none;
+  background: transparent;
+  float: none;
 }
 
 .dianomi-cta-text a {
-  display: inline-block;
   font-size: 11px;
   font-weight: 500;
   color: #fff;
@@ -1864,19 +1847,13 @@ body {
   border: 0.5px solid rgba(255, 255, 255, 0.2);
   padding: 5px 12px;
   border-radius: 4px;
-  text-decoration: none;
 }
 
 .dianomi-main-text a {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   font-size: 15px;
   font-weight: 500;
   color: #fff;
   line-height: 1.35;
-  text-decoration: none;
 }
 
 .footer {
@@ -1887,295 +1864,3 @@ body {
   display: none;
 }
 ```
-
-
-
----
-
-## VIDEO / PODCAST UNIT — COMPLETELY SEPARATE UNIT TYPE
-
-**CRITICAL — read before writing a single selector:** the video/podcast unit is NOT a smartad unit. It uses a completely different DOM structure, different embed architecture, different CSS selectors, and different JS (Flowplayer). Every selector documented above (`.wrapper`, `.hero`, `.subhero`, `.dianomihref`, `.maintext`, `.dianomi_provider_short`, `.line2`, `.sub-line2`, `.action`) targets the smartad DOM and **does not exist** in a video/podcast unit. Writing those selectors in a video/podcast CSS file produces a file that silently targets nothing.
-
-### WHY IT IS A SEPARATE EMBED ARCHITECTURE
-
-Dianomi runs two distinct embed architectures. The smartad unit is a div injected directly into the publisher page DOM, with Dianomi's JS writing .hero children into it at runtime. The video/podcast unit is a separate iframe containing its own fully self-contained HTML document — Flowplayer, cover art, audio source, and all — assembled by Dianomi's backend. The partner CSS file (the file Subtype generates) is loaded inside that inner iframe document as one link tag among several. This means the CSS file must target the DOM elements that exist inside that iframe, not the smartad DOM elements on the outer page.
-
-There are actually two nested iframes: an outer wrapper iframe, then an inner document iframe — the one that contains .dianomi_video and where the CSS applies. Confirmed via DevTools in July 2026.
-
-### THE REAL DOM STRUCTURE (confirmed from live unit 91470, July 2026)
-
-div.dianomi_video                              outermost container
-  div.dianomi-text-wrapper                     entire text zone, sits ABOVE the player
-    div.dianomi-header-container               header row: label left, CTA right
-      div.dianomi-header-text                  "Sponsored Podcast by:" + advertiser logo
-        span                                   literal text "Sponsored Podcast by:"
-        div.header-image-container             advertiser logo wrapper
-          img                                  logo image (src set by Dianomi)
-      div.dianomi-cta-text-container
-        div.dianomi-cta-text
-          a                                    "Listen further" / "Listen Now" CTA link
-    div.dianomi-main-container
-      div.dianomi-main-text
-        a                                      episode title (clickable link to landing page)
-
-  div.dianomi-video-body.dianomi-audio         the player area (dianomi-audio class = podcast)
-    div.dianomi-video-overlay.podcast-overlay  "Play Podcast" click-to-start overlay
-      div.dianomi-video-overlay--replay
-        div > img                              play icon image
-        div                                    "Play Podcast" label text
-    div.dianomi-video-background               cover art: background-image set INLINE by Dianomi JS
-    img#dianomi-audio-wave                     Dianomi's own animated GIF waveform — ALWAYS HIDE THIS
-    div.flowplayer.is-audio-player             Flowplayer player with all controls
-      video.fp-engine                          actual audio element (src = .mp3 URL)
-      div.fp-ratio                             aspect ratio spacer (padding-top:56.25%)
-      flowplayer-ui.fp-ui
-        flowplayer-control.fp-controls.fp-togglable
-          flowplayer-small-play-icon.fp-small-play
-          flowplayer-small-pause-icon.fp-small-pause
-          flowplayer-elapsed-time.fp-elapsed
-          flowplayer-timeline-bar.fp-timeline.fp-bar
-            div.fp-progress.fp-color           width% reflects playback progress
-            div.fp-buffer                      width% reflects buffered amount
-          flowplayer-control-duration.fp-duration
-          flowplayer-volume-control
-            flowplayer-volume-icon.fp-volume-mute-unmute
-            flowplayer-volume-bar.fp-volume
-
-  div.footer                                   "Podcast by Dianomi" footer bar
-    div.footer-logo
-      a > img                                  Dianomi logo
-    button.openclose                           x close button
-
-### FLOWPLAYER PLAYBACK STATE CLASSES — THE KEY CSS HOOK
-
-Flowplayer adds and removes these classes on the .flowplayer div automatically during real playback. No JS is needed on our side — we just write CSS targeting them:
-
-- is-paused: audio stopped (present after first play then pause; NOT present during initial load)
-- is-playing: audio actively playing
-- is-starting: initial state before Flowplayer initializes (neither is-paused nor is-playing yet)
-- is-audio-player: always present on podcast/audio units
-- is-touch-device / is-mobile: present on mobile viewports
-- has-poster: cover art background-image has been set by Dianomi's JS
-
-.flowplayer.is-playing .your-element and .flowplayer.is-paused .your-element
-are the primary hooks for anything that should react to real playback state.
-
-### SELECTOR QUICK REFERENCE
-
-.dianomi_video                 outer container — background, border-radius, overflow
-.dianomi-text-wrapper          text zone — padding, background, font family
-.dianomi-header-container      header row — flex layout, alignment
-.dianomi-header-text           "Sponsored Podcast by:" label
-.header-image-container img    advertiser logo inside the header
-.dianomi-cta-text a            CTA button (Listen further / Listen Now)
-.dianomi-main-text a           episode title link
-.dianomi-video-body            player area — must be position:relative for absolute children
-.dianomi-video-background      cover art container — we control size, aspect ratio, overlays via ::after
-.dianomi-video-overlay         click-to-start overlay (visible before first play)
-.dianomi-video-overlay--replay img     play icon inside the overlay
-.dianomi-video-overlay--replay div    "Play Podcast" label inside the overlay
-#dianomi-audio-wave            Dianomi's GIF waveform — always display:none !important
-.flowplayer.is-audio-player    player chrome area — background, positioning
-.flowplayer.is-playing         playing state — animate waveform, change button appearance
-.flowplayer.is-paused          paused state — static waveform
-flowplayer-control.fp-controls Flowplayer controls bar
-.fp-progress.fp-color          progress fill (width% = playback %)
-.footer                        footer bar — almost always display:none in custom designs
-.openclose                     close button — almost always display:none
-
-### CRITICAL DIFFERENCE: .dianomi-video-background IS NOT AN IMG ELEMENT
-
-In a smartad unit, the ad image is an actual img tag (.hero img). In a video/podcast unit, the cover art is set as a background-image inline style on div.dianomi-video-background by Dianomi's JS at runtime. This means:
-- You cannot target it with img selectors
-- You control the display via background-size, background-position, aspect ratio (padding-top trick)
-- You cannot use onerror fallbacks
-- Overlays go on ::before or ::after pseudo-elements, or on absolutely positioned children
-
-### THE CSS WAVEFORM VISUALISER — ARCHITECTURE AND REASONING
-
-Dianomi's default podcast unit shows img#dianomi-audio-wave — a static GIF with no connection to actual audio levels and no play/pause reaction. We hide it and replace it with injected div.dw-bar elements.
-
-WHY inject via Header Html script rather than pseudo-elements or existing elements:
-- CSS pseudo-elements (::before, ::after) only give two elements per selector — not enough bars for a convincing waveform shape
-- The existing .fp-volume ticks are Flowplayer's own elements and cannot be repurposed
-- A Header Html script tag injects the bars into .dianomi-video-body at DOM-ready time, before any user interaction
-- Each bar gets an individual height (the static waveform shape) and CSS custom properties --dur and --delay for staggered animation timing
-- The CSS @keyframes animation on .flowplayer.is-playing .dw-bar fires automatically when Flowplayer adds is-playing — zero audio API, zero event listeners from our side
-
-STANDARD INJECTION SCRIPT (goes in Header Html, not in the CSS file):
-The script waits 800ms after DOMContentLoaded to ensure Flowplayer has initialized and the .dianomi-video-body container exists in the DOM. It checks for an existing .dw-wave to prevent duplicate injection on re-renders.
-
-### COMPARISON TABLE: SMARTAD VS VIDEO/PODCAST SELECTORS
-
-Concept          SmartAd                      Video/Podcast
-Outer container  .wrapper                     .dianomi_video
-Ad slot          .hero                        (no equivalent — single unit)
-Cover image      .hero img (img element)      .dianomi-video-background (background-image on div)
-Episode/headline .maintext                    .dianomi-main-text a
-Provider/brand   .dianomi_provider_short      .dianomi-header-text (contains label + logo img)
-CTA button       .action                      .dianomi-cta-text a
-Dianomi logo     .sub-line2 img.dianomi-lg    .footer-logo img (or .header-image-container img)
-Heading label    div.line2                    .dianomi-header-text span
-Play state       n/a                          .flowplayer.is-playing / .is-paused
-
-### BODY RULE FOR VIDEO/PODCAST
-
-Identical reasoning to smartad: overflow-x:hidden; overflow-y:hidden prevents the iframe height-sync race from producing scrollbars. Never overflow:visible, never fixed height.
-
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: auto;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  box-sizing: border-box;
-}
-
-### PRODUCTION CSS EXAMPLE: DARK NAVY DIRECTION (direction 2, confirmed July 2026)
-
-@keyframes dw-beat {
-  0%, 100% { transform: scaleY(0.1); }
-  50% { transform: scaleY(1); }
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: auto;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  box-sizing: border-box;
-  font-family: 'Roboto', sans-serif;
-  background: #0C1520;
-}
-
-.dianomi_video {
-  background: #0C1520;
-  overflow: hidden;
-}
-
-.dianomi-video-body {
-  position: relative;
-}
-
-.dianomi-video-background {
-  width: 100%;
-  padding-top: 56%;
-  background-size: cover;
-  background-position: center;
-  background-color: #162535;
-  position: relative;
-}
-
-.dianomi-video-background::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.25) 50%, transparent 100%);
-}
-
-.dianomi-video-overlay { z-index: 4; }
-
-.dianomi-video-overlay--replay img {
-  width: 44px;
-  height: 44px;
-  filter: brightness(0) invert(1);
-  opacity: 0.9;
-}
-
-.dianomi-video-overlay--replay div:last-child {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  margin-top: 6px;
-  font-family: 'Roboto', sans-serif;
-}
-
-#dianomi-audio-wave { display: none !important; }
-
-.dw-wave {
-  position: absolute;
-  bottom: 44px;
-  left: 12px;
-  right: 12px;
-  height: 44px;
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  z-index: 2;
-}
-
-.dw-bar {
-  flex: 1;
-  border-radius: 2px 2px 0 0;
-  transform-origin: bottom;
-  background: rgba(255, 255, 255, 0.2);
-  transition: background 0.3s;
-}
-
-.flowplayer.is-playing .dw-bar {
-  animation: dw-beat var(--dur, 0.6s) ease-in-out infinite var(--delay, 0s);
-  background: #1D9E75 !important;
-}
-
-.flowplayer.is-audio-player {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 3;
-  background: rgba(0, 0, 0, 0.72);
-}
-
-.dianomi-text-wrapper { padding: 12px 14px 14px; }
-
-.dianomi-header-container {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.dianomi-header-text {
-  font-size: 9px;
-  color: rgba(255, 255, 255, 0.35);
-  letter-spacing: 0.4px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.header-image-container img {
-  height: 14px;
-  width: auto;
-  opacity: 0.55;
-  filter: brightness(10);
-}
-
-.dianomi-cta-text a {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 500;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  border: 0.5px solid rgba(255, 255, 255, 0.2);
-  padding: 5px 12px;
-  border-radius: 4px;
-  text-decoration: none;
-}
-
-.dianomi-main-text a {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 15px;
-  font-weight: 500;
-  color: #fff;
-  line-height: 1.35;
-  text-decoration: none;
-}
-
-.footer { display: none; }
-.openclose { display: none; }
