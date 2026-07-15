@@ -118,11 +118,101 @@ module.exports = async function handler(req, res) {
     breakpointTier = null,
     breakpointPx = null,
     breakpointWidth = null,
-    breakpointHeight = null
+    breakpointHeight = null,
+    previewMode = 'smartad'   // 'smartad' (default) or 'video'
   } = req.body || {};
 
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
   if (!feedback) { return res.status(400).json({ error: 'feedback required' }); }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // VIDEO / PODCAST MODE — separate refine prompt using video DOM selectors.
+  // Never mixes with the smartad REFINE_SYSTEM or smartad-specific rules.
+  // ─────────────────────────────────────────────────────────────────────
+  if (previewMode === 'video') {
+    const selectedModelVideo = ALLOWED_MODELS.includes(model) ? model : 'gemini-2.5-flash';
+    const thinkingBudgetVideo = { 'gemini-2.5-pro': 1024, 'gemini-2.5-flash': 512, 'gemini-2.5-flash-lite': 256 };
+
+    const VIDEO_REFINE_SYSTEM = `You are a CSS expert fixing a Dianomi video/podcast ad unit stylesheet based on user feedback.
+
+MANDATORY METHODOLOGY (same as always — copy then patch):
+1. Mentally reproduce the ENTIRE current CSS exactly as given.
+2. Read the feedback and identify ONLY the properties that need to change.
+3. Copy the current CSS verbatim, modify ONLY what was asked.
+4. Every unchanged rule must appear byte-for-byte identical to the input.
+
+This is a VIDEO/PODCAST unit. The DOM selectors are COMPLETELY DIFFERENT from smartad units.
+NEVER use .wrapper, .hero, .maintext, .dianomi_provider_short, .line2, .sub-line2, .action — those do not exist in this unit's DOM.
+
+CORRECT SELECTORS FOR THIS UNIT:
+.dianomi_video, .dianomi-text-wrapper, .dianomi-header-container, .dianomi-header-text,
+.header-image-container img, .dianomi-cta-text a, .dianomi-main-text a,
+.dianomi-video-body, .dianomi-video-background, .dianomi-video-background::after,
+.dianomi-video-overlay, .dianomi-video-overlay--replay img, .dianomi-video-overlay--replay div:last-child,
+#dianomi-audio-wave (always display:none !important),
+.dw-wave, .dw-bar,
+.flowplayer.is-audio-player, .flowplayer.is-playing .dw-bar, .flowplayer.is-paused .dw-bar,
+.footer (usually display:none), .openclose (usually display:none)
+
+ALWAYS REQUIRED REGARDLESS OF FEEDBACK:
+- #dianomi-audio-wave { display: none !important; }
+- body { height: auto; overflow-x: hidden; overflow-y: hidden; }
+- .dianomi-video-body { position: relative; }
+- No CSS comments, no markdown fences, no float, no display:table
+- Every rule spans multiple lines (selector, brace, one property per line, closing brace)
+- Each selector appears exactly once`;
+
+    const videoRefineMessage = `Refinement round ${round}.
+
+Here is the reference screenshot:
+[image attached]
+
+Here is the current CSS:
+\`\`\`css
+${currentCSS}
+\`\`\`
+
+USER FEEDBACK — fix exactly these issues:
+${feedback}
+
+Output the complete corrected CSS.`;
+
+    const videoRefineBody = {
+      contents: [{
+        parts: [
+          { text: VIDEO_REFINE_SYSTEM + '\n\n' + videoRefineMessage },
+          { inline_data: { mime_type: mimeType, data: imageBase64 } }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 4000,
+        thinkingConfig: { thinkingBudget: thinkingBudgetVideo[selectedModelVideo] || 512 }
+      }
+    };
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    const videoRefineUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModelVideo}:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const videoRefineResp = await fetch(videoRefineUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(videoRefineBody)
+    });
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const vrReader = videoRefineResp.body.getReader();
+    const vrDec = new TextDecoder();
+    while (true) {
+      const { done, value } = await vrReader.read();
+      if (done) break;
+      res.write(vrDec.decode(value, { stream: true }));
+    }
+    res.end();
+    return;
+  }
 
   const historyNote = Array.isArray(feedbackHistory) && feedbackHistory.length > 0
     ? `\n\nPREVIOUS ROUNDS OF FEEDBACK IN THIS SESSION (for context — these were already applied and are reflected in the current CSS below, but knowing what was asked helps you understand the person's intent and avoid undoing earlier decisions):\n${feedbackHistory.map((f, i) => `Round ${i + 1}: "${f}"`).join('\n')}`
