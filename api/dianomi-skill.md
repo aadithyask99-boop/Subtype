@@ -1550,6 +1550,29 @@ Dianomi runs two distinct embed architectures. The smartad unit is a div injecte
 
 There are two nested iframes in the live embed: an outer wrapper iframe, then an inner document iframe — the one that contains `.dianomi_video` and where the CSS applies. Confirmed via DevTools, July 2026.
 
+### CRITICAL — SPECIFICITY: MANY BASE RULES ARE SCOPED WITH `div[id^="dv_"]` AND BEAT PLAIN CLASS OVERRIDES
+
+**This is the single most common cause of "my CSS is correct but the live preview/production still shows the base style."** A large portion of `dianomi-video.css` scopes its rules with the attribute selector `div[id^="dv_"]` (matching the unit's real `id="dv_91470"`-style ID). An attribute selector counts the same as a class in CSS specificity math — so `div[id^="dv_"] .dianomi-cta-text` has specificity **(0,2,0)**, which is HIGHER than a plain `.dianomi-cta-text { }` override at **(0,1,0)**. CSS resolves conflicts by specificity FIRST, source order only as a tiebreaker when specificity is equal — loading your CSS after the base stylesheet does NOT help if the base rule is simply more specific. This was discovered directly from a broken live test (2026-07-15): the CTA button and headline color silently kept the base style even with a "correct" override present.
+
+**The fix: match the `div[id^="dv_"]` prefix on every selector where the base stylesheet uses it.** Confirmed list of base rules using this prefix — your override MUST use the same prefix on these specific selectors, or it will silently lose regardless of correctness:
+```
+div[id^="dv_"].dianomi_video
+div[id^="dv_"] .openclose
+div[id^="dv_"] .footer
+div[id^="dv_"] .footer img
+div[id^="dv_"] .dianomi-text-wrapper
+div[id^="dv_"] .dianomi-main-container
+div[id^="dv_"] .dianomi-main-text
+div[id^="dv_"] .dianomi-cta-text
+div[id^="dv_"] .dianomi-main-text a
+div[id^="dv_"] .dianomi-cta-text a
+div[id^="dv_"] .flowplayer
+```
+
+Selectors the base stylesheet writes as PLAIN classes (no prefix needed on your override — these already work correctly with a simple override, source order alone is sufficient): `.dianomi-header-container`, `.dianomi-header-text`, `.header-image-container img`, `.dianomi-video-body`, `.dianomi-video-overlay`, `.dianomi-video-overlay.podcast-overlay`, `.dianomi-video-background`.
+
+**When in doubt, check the actual base stylesheet** rather than assuming — it's the only reliable way to know which selectors need the prefix. Alternative if you can't verify: use `!important`, but matching the prefix is cleaner and matches Dianomi's own convention exactly.
+
 ### THE REAL BASE STYLESHEET — dianomi-video.css (fetched and verified 2026-07-15)
 
 **This is the single most important correction in this section.** Earlier documentation in this file was written from DOM inspection alone, without the base stylesheet — and made several wrong assumptions about default behavior that this fetch corrected. Subtype's video preview template (`buildVideoHTML()` in `index.html`) now loads this exact base stylesheet before the person's CSS, mirroring production load order exactly, so what you see in Subtype's preview should now match production.
@@ -1725,9 +1748,9 @@ body {
 }
 ```
 
-### PRODUCTION CSS EXAMPLE: DARK NAVY PODCAST DIRECTION (corrected 2026-07-15, verified against real base stylesheet)
+### PRODUCTION CSS EXAMPLE: DARK NAVY PODCAST DIRECTION (corrected 2026-07-15 v2 — specificity-verified against real base stylesheet)
 
-This is the production-ready CSS for the dark direction, corrected after live testing revealed the original version fought the base stylesheet's structural assumptions (see corrections #1-6 above). It embraces the blurred-backdrop + contained-sharp-image pattern and the bottom-bar overlay structure rather than fighting them. Needs the Header Html injection script above.
+This is the production-ready CSS for the dark direction, twice-corrected after live testing: first to embrace the blurred-backdrop/contained-image/bottom-bar structure (see corrections above), then to fix a specificity bug where several overrides were silently losing to base rules scoped with `div[id^="dv_"]`. Every selector below that needs the prefix has it. Needs the Header Html injection script above.
 
 ```css
 body {
@@ -1747,7 +1770,7 @@ body {
   50% { transform: scaleY(1); }
 }
 
-.dianomi_video {
+div[id^="dv_"].dianomi_video {
   background: #0C1520;
   border: none;
 }
@@ -1811,7 +1834,7 @@ body {
   background: #1D9E75 !important;
 }
 
-.dianomi-text-wrapper {
+div[id^="dv_"] .dianomi-text-wrapper {
   padding: 12px 14px 14px;
   border-bottom: none;
 }
@@ -1828,18 +1851,18 @@ body {
 }
 
 .header-image-container img {
-  opacity: 0.55;
-  filter: brightness(10);
+  opacity: 0.85;
+  filter: brightness(0) invert(1);
   padding: 0;
 }
 
-.dianomi-cta-text {
+div[id^="dv_"] .dianomi-cta-text {
   border: none;
   background: transparent;
   float: none;
 }
 
-.dianomi-cta-text a {
+div[id^="dv_"] .dianomi-cta-text a {
   font-size: 11px;
   font-weight: 500;
   color: #fff;
@@ -1849,18 +1872,18 @@ body {
   border-radius: 4px;
 }
 
-.dianomi-main-text a {
+div[id^="dv_"] .dianomi-main-text a {
   font-size: 15px;
   font-weight: 500;
   color: #fff;
   line-height: 1.35;
 }
 
-.footer {
+div[id^="dv_"] .footer {
   display: none;
 }
 
-.openclose {
+div[id^="dv_"] .openclose {
   display: none;
 }
 ```
