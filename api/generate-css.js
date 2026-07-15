@@ -418,7 +418,8 @@ module.exports = async function handler(req, res) {
     heightPx = null,
     unitType = 'iab',
     model = 'gemini-2.5-flash',
-    userNote = ''
+    userNote = '',
+    previewMode = 'smartad'   // 'smartad' (default) or 'video' — controls which DOM selectors Gemini targets
   } = req.body || {};
   if (!imageBase64) { return res.status(400).json({ error: 'imageBase64 required' }); }
 
@@ -503,6 +504,98 @@ FINAL REMINDERS before you write (these are the most commonly missed rules):
 - No CSS comments, no markdown fences.
 
 Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + domNote + dimensionNote + userNoteBlock;
+
+  // ─────────────────────────────────────────────────────────────────────
+  // VIDEO / PODCAST MODE — completely separate prompt, separate selectors
+  // Never mixes with the smartad few-shot examples or smartad DOM notes.
+  // The previewMode flag is set by index.html when the Video/Podcast tab
+  // is active. If 'smartad' (default), the standard flow below runs as
+  // before — nothing about that path changes.
+  // ─────────────────────────────────────────────────────────────────────
+  if (previewMode === 'video') {
+    const videoPrompt = `You are a CSS expert generating a partner stylesheet for a Dianomi video/podcast ad unit.
+
+This is NOT a smartad unit. The selectors .wrapper, .hero, .subhero, .dianomihref, .maintext, .dianomi_provider_short, .line2, .sub-line2, .action DO NOT EXIST in this unit's DOM. Using them produces a CSS file that silently targets nothing. Do not use any of them.
+
+THE REAL DOM (confirmed from live unit, use these selectors only):
+- .dianomi_video                    outermost container
+- .dianomi-text-wrapper             entire text zone
+- .dianomi-header-container         header row (label left, CTA right)
+- .dianomi-header-text              "Sponsored Podcast by:" + logo area
+- .header-image-container img       advertiser logo image
+- .dianomi-cta-text a               CTA link ("Listen further" / "Listen Now")
+- .dianomi-main-text a              episode title link
+- .dianomi-video-body               player container (must be position:relative)
+- .dianomi-video-background         cover art (background-image set inline by Dianomi — not an img tag)
+- .dianomi-video-background::after  overlay/scrim on cover art
+- .dianomi-video-overlay            click-to-start overlay (visible before first play)
+- .dianomi-video-overlay--replay img   play icon inside overlay
+- .dianomi-video-overlay--replay div:last-child   "Play Podcast" text label
+- #dianomi-audio-wave               Dianomi GIF waveform — ALWAYS display:none !important
+- .dw-wave                          custom waveform container (injected by Header Html script)
+- .dw-bar                           individual waveform bar elements
+- .flowplayer.is-audio-player       Flowplayer container
+- .flowplayer.is-playing .dw-bar    playing state — animate bars
+- .flowplayer.is-paused .dw-bar     paused state — static bars
+- flowplayer-control.fp-controls    controls bar
+- .fp-progress.fp-color             progress fill (width% = playback %)
+- .footer                           "Podcast by Dianomi" footer — usually display:none
+- .openclose                        close button — usually display:none
+
+KEY FACTS:
+1. .dianomi-video-background is a div, not an img. Cover art is a background-image set inline by Dianomi's JS. Control its display via background-size, background-position, and padding-top (aspect ratio trick). Add overlays via ::after.
+2. .flowplayer adds/removes is-playing and is-paused automatically during real playback. CSS rules using .flowplayer.is-playing react to real audio state with zero JS from your side.
+3. .dw-bar elements are injected by a Header Html script — not present in the default DOM, but present whenever the script runs. Write CSS for them assuming they exist.
+4. body must always be: height:auto; overflow-x:hidden; overflow-y:hidden — never overflow:visible.
+
+FORMATTING RULES (same as always):
+- Every rule spans multiple lines: selector, brace, one property per line, closing brace, blank line
+- No CSS comments, no markdown fences, no backticks
+- Each selector exactly once
+- No float, no display:table
+
+${userNote ? `CONTEXT FROM PERSON: ${userNote}` : ''}
+
+Look at the screenshot and write the complete CSS file. Output pure CSS only.`;
+
+    const videoBody = {
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: videoPrompt },
+            { inline_data: { mime_type: mimeType, data: imageBase64 } }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 8192,
+        thinkingConfig: { thinkingBudget: thinkingBudgetByModel[selectedModel] || 1024 }
+      }
+    };
+
+    const videoUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const videoResp = await fetch(videoUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(videoBody)
+    });
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const videoReader = videoResp.body.getReader();
+    const videoDec = new TextDecoder();
+    while (true) {
+      const { done, value } = await videoReader.read();
+      if (done) break;
+      res.write(videoDec.decode(value, { stream: true }));
+    }
+    res.end();
+    return;
+  }
 
   // Multi-turn few-shot: show real screenshot → real production CSS pairs before asking for the new one
   const geminiBody = {
