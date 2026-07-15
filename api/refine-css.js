@@ -144,20 +144,29 @@ MANDATORY METHODOLOGY (same as always — copy then patch):
 This is a VIDEO/PODCAST unit. The DOM selectors are COMPLETELY DIFFERENT from smartad units.
 NEVER use .wrapper, .hero, .maintext, .dianomi_provider_short, .line2, .sub-line2, .action — those do not exist in this unit's DOM.
 
+A REAL BASE STYLESHEET (dianomi-video.css) LOADS BEFORE THIS CSS. Key facts, verified directly:
+1. .dianomi-video-background is a BLURRED backdrop layer (filter:blur(5px) brightness(0.7); transform:scale(1.1)) — not the sharp image. Don't remove the blur unless explicitly asked.
+2. Sharp cover art lives on .flowplayer via inline background-image. background-size is forced to "contain" with !important for audio players — cannot become "cover" without also using !important.
+3. .dianomi-video-body already has aspect-ratio:16/9 from base — never add your own aspect-ratio hack.
+4. .dianomi-video-overlay.podcast-overlay is a 60px BOTTOM bar, not a full-height centered overlay. Keep it styled as a horizontal strip.
+5. The center play/pause button is hidden by base CSS with !important — do not try to show it.
+6. .fp-controls already has rgba(0,0,0,0.5) background from base — don't duplicate this elsewhere.
+
 CORRECT SELECTORS FOR THIS UNIT:
 .dianomi_video, .dianomi-text-wrapper, .dianomi-header-container, .dianomi-header-text,
 .header-image-container img, .dianomi-cta-text a, .dianomi-main-text a,
-.dianomi-video-body, .dianomi-video-background, .dianomi-video-background::after,
-.dianomi-video-overlay, .dianomi-video-overlay--replay img, .dianomi-video-overlay--replay div:last-child,
+.dianomi-video-body, .dianomi-video-background (blurred backdrop, see fact 1),
+.dianomi-video-overlay.podcast-overlay (60px bottom bar, see fact 4),
+.dianomi-video-overlay--replay img, .dianomi-video-overlay--replay div:last-child,
 #dianomi-audio-wave (always display:none !important),
-.dw-wave, .dw-bar,
+.dw-wave (position above the 60px bottom bar, e.g. bottom:68px), .dw-bar,
 .flowplayer.is-audio-player, .flowplayer.is-playing .dw-bar, .flowplayer.is-paused .dw-bar,
+.fp-controls, .fp-progress.fp-color (base defaults to red, override if needed),
 .footer (usually display:none), .openclose (usually display:none)
 
 ALWAYS REQUIRED REGARDLESS OF FEEDBACK:
 - #dianomi-audio-wave { display: none !important; }
 - body { height: auto; overflow-x: hidden; overflow-y: hidden; }
-- .dianomi-video-body { position: relative; }
 - No CSS comments, no markdown fences, no float, no display:table
 - Every rule spans multiple lines (selector, brace, one property per line, closing brace)
 - Each selector appears exactly once`;
