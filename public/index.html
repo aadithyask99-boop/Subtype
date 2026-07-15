@@ -157,6 +157,18 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
 
 <!-- PRESET BAR -->
 <div class="presetbar">
+  <!-- PREVIEW MODE TOGGLE — switches between SmartAd and Video/Podcast modes.
+       Sits at the far left so it's the first decision before anything else.
+       When switching, originalCSS/customCSS are cleared to prevent stale
+       smartad snapshots contaminating a video CSS session (or vice versa).
+       Everything else in this bar (Header Html, Logo, toggles) still works in
+       both modes — they just have no effect on the video preview template since
+       that template has its own fixed DOM and doesn't use Header Html injection. -->
+  <div class="bg" id="mode-btns" style="margin-right:6px;">
+    <button class="btn active" id="mode-smartad" onclick="switchPreviewMode('smartad')" title="SmartAd units — .wrapper/.hero DOM">SmartAd</button>
+    <button class="btn" id="mode-video" onclick="switchPreviewMode('video')" title="Video/Podcast units — .dianomi_video DOM">Video / Podcast</button>
+  </div>
+  <div class="pdiv"></div>
   <span class="pl">Preset</span>
   <select class="psel" id="unit-preset">
     <option value="">— load preset —</option>
@@ -420,6 +432,14 @@ textarea.fb{width:100%;height:100%;background:#13151f;color:#f8f8f2;border:none;
       <div class="fw" id="frame-wrap">
         <iframe id="prev" scrolling="yes"></iframe>
       </div>
+      <!-- VIDEO MODE: play/pause toggle — simulates .flowplayer.is-playing class
+           that Flowplayer adds automatically in production. Only visible when
+           previewMode === 'video'. Calls vpTogglePlay() which is defined inside
+           the preview iframe's own script so it can access the iframe's DOM directly. -->
+      <div id="video-preview-controls" style="display:none;padding:8px 0 0;display:flex;align-items:center;gap:10px;display:none;">
+        <button id="vp-play-btn" onclick="vpPreviewToggle()" style="font-size:12px;padding:5px 14px;border-radius:var(--radius);background:var(--accent);border:none;color:#fff;cursor:pointer;">▶ Play (preview)</button>
+        <span style="font-size:11px;color:var(--text-dim);">Simulates .flowplayer.is-playing — tests waveform animation and playing-state CSS</span>
+      </div>
     </div>
   </div>
 </div>
@@ -432,6 +452,55 @@ var S = { numAds:1, widthPct:30, heightPx:600, charLen:30, provLen:15, order:'pr
 var MAX_W = 1460;
 var cmCSS=null, cmHeader=null, cmHTMLout=null;
 var cmCSSReady=false, cmHeaderReady=false;
+
+// ─────────────────────────────────────────────
+// PREVIEW MODE — 'smartad' (default) or 'video'
+// Controls which HTML preview template doRender() uses and which
+// Gemini endpoint prompt branch generate/refine use. The two modes
+// are completely isolated: no selectors, no state, no UI controls
+// bleed between them. Switching mode resets originalCSS/customCSS
+// so stale smartad snapshots never contaminate a video CSS session.
+// ─────────────────────────────────────────────
+var previewMode = 'smartad';
+
+function switchPreviewMode(mode){
+  if(previewMode === mode) return;
+  previewMode = mode;
+  // Update mode toggle buttons
+  document.getElementById('mode-smartad').classList.toggle('active', mode === 'smartad');
+  document.getElementById('mode-video').classList.toggle('active', mode === 'video');
+  // Show/hide the video preview play button
+  var vpc = document.getElementById('video-preview-controls');
+  if(vpc) vpc.style.display = mode === 'video' ? 'flex' : 'none';
+  // Reset snapshots — stale smartad CSS must never contaminate a video session.
+  // The two DOM structures share zero selectors: a smartad CSS file silently
+  // targets nothing in the video preview DOM and vice versa, so leftover state
+  // from one mode appearing in the other is actively misleading.
+  originalCSS = '';
+  customCSS = '';
+  manualLockOverride = null;
+  lockedUnit = false;
+  if(typeof updateLockUI === 'function') updateLockUI();
+  schedRender();
+}
+
+// Called by the preview toolbar play button in video mode. Reaches into the
+// preview iframe to call vpTogglePlay() (defined inside buildVideoHTML's inline
+// script), which has direct DOM access to the iframe's .flowplayer element.
+// Safe because both documents are same-origin blob: URLs from this page.
+function vpPreviewToggle(){
+  var iframe = document.getElementById('prev');
+  if(!iframe || !iframe.contentWindow) return;
+  try {
+    iframe.contentWindow.vpTogglePlay();
+    var fp = iframe.contentDocument && iframe.contentDocument.getElementById('fp-preview');
+    if(fp){
+      var isPlaying = fp.classList.contains('is-playing');
+      var btn = document.getElementById('vp-play-btn');
+      if(btn) btn.textContent = isPlaying ? '⏸ Pause (preview)' : '▶ Play (preview)';
+    }
+  } catch(e) { console.warn('vpPreviewToggle:', e); }
+}
 
 // ─────────────────────────────────────────────
 // ORIGINAL / CUSTOM MASTER SNAPSHOTS
@@ -1115,6 +1184,108 @@ function buildHTML(css,headerHtml,numAds,charLen,provLen,order){
   return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<style>.hidden{display:none!important;}.maintext{display:inline;}</style>\n'+headerHtml+'\n<style>\n'+css+'\n</style>\n</head>\n<body>\n<div class="wrapper dianomi_smartad_1 _dianomi_wrapper dianomi_branded" data-smartad-id="1" id="1">\n'+heroes+'\n</div>\n</body>\n</html>';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// VIDEO / PODCAST PREVIEW TEMPLATE
+// Mirrors the real innermost iframe DOM confirmed from live unit 91470 (July 2026).
+// This is a static HTML shell — no real Flowplayer JS, no real audio.
+// The .dw-wave bars are pre-injected here (in production the Header Html script
+// does this, but for the preview we include them statically so the waveform CSS
+// rules have real elements to target immediately, without needing the script).
+// A manual play/pause toggle button in the preview toolbar simulates
+// .flowplayer.is-playing / .is-paused class toggling so waveform animation
+// and playing-state CSS rules can be tested without real audio.
+// IMPORTANT: never merge this function with buildHTML() above — they target
+// completely different DOMs and any shared state would corrupt both previews.
+// ─────────────────────────────────────────────────────────────────────────────
+function buildVideoHTML(css, headerHtml){
+  var waveBarHeights = [22,48,70,88,55,92,74,96,82,88,68,94,58,84,76,66,52,74,46,38,30,24,44,60,74,84,66,50,34,26,46,64,80,90,70,52];
+  var waveBars = waveBarHeights.map(function(h, i){
+    var dur = (0.4 + (i % 9) * 0.06).toFixed(2);
+    var delay = (i * 0.035).toFixed(2);
+    return '<div class="dw-bar" style="height:'+h+'%;--dur:'+dur+'s;--delay:'+delay+'s;"></div>';
+  }).join('');
+
+  return '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'+
+  (headerHtml || '')+'\n'+
+  '<style>\n'+css+'\n</style>\n'+
+  '</head>\n<body>\n'+
+  '<div class="dianomi_video" data-dianomi-video-id="91470" id="dv_91470">\n'+
+  '  <div class="dianomi-text-wrapper dianomi-text-wrapper-advertiser">\n'+
+  '    <div class="dianomi-header-container">\n'+
+  '      <div class="dianomi-header-text" style="max-height:50px;">\n'+
+  '        <span>Sponsored Podcast by:</span>\n'+
+  '        <div class="header-image-container">\n'+
+  '          <img src="https://www.dianomi.com/img/a/c/10068/8/150x30.png" alt="Dianomi" style="max-width:120px;height:auto;">\n'+
+  '        </div>\n'+
+  '      </div>\n'+
+  '      <div class="dianomi-cta-text-container">\n'+
+  '        <div class="dianomi-cta-text"><a>Listen further</a></div>\n'+
+  '      </div>\n'+
+  '    </div>\n'+
+  '    <div class="dianomi-main-container">\n'+
+  '      <div class="dianomi-main-text">\n'+
+  '        <a>Cookie-Free Contextual Ads for Premium Business &amp; Finance Brands</a>\n'+
+  '      </div>\n'+
+  '    </div>\n'+
+  '  </div>\n'+
+  '  <div class="dianomi-video-body dianomi-audio">\n'+
+  '    <div class="dianomi-video-overlay dianomi-video-play podcast-overlay">\n'+
+  '      <div class="dianomi-video-overlay--replay">\n'+
+  '        <div><img src="https://www.dianomi.com/videofeed/icons/play_200px.png" style="width:60px;height:60px;" alt="Play"></div>\n'+
+  '        <div>Play Podcast</div>\n'+
+  '      </div>\n'+
+  '    </div>\n'+
+  '    <div class="dianomi-video-background" style="background-image:url(\'https://www.dianomi.com/img/a/sav2/309947/3/600x600.jpg\');"></div>\n'+
+  '    <img id="dianomi-audio-wave" src="https://www.dianomi.com/videofeed/icons/sound-wave.gif" style="display:none;">\n'+
+  '    <div class="dw-wave">'+waveBars+'</div>\n'+
+  '    <div class="flowplayer is-audio-player is-paused has-poster is-loaded" id="fp-preview" style="background-image:url(\'https://www.dianomi.com/img/a/sav2/309947/3/x600.jpg\');">\n'+
+  '      <div class="fp-ratio" style="padding-top:56.25%;"></div>\n'+
+  '      <flowplayer-ui class="fp-ui">\n'+
+  '        <flowplayer-control class="fp-controls fp-togglable">\n'+
+  '          <flowplayer-control-buttons class="fp-btns fp-small-switch">\n'+
+  '            <flowplayer-small-pause-icon class="fp-icon fp-small-pause" aria-label="Pause"></flowplayer-small-pause-icon>\n'+
+  '            <flowplayer-small-play-icon class="fp-icon fp-small-play" aria-label="Play"></flowplayer-small-play-icon>\n'+
+  '          </flowplayer-control-buttons>\n'+
+  '          <flowplayer-elapsed-time class="fp-elapsed" aria-hidden="true">01:20</flowplayer-elapsed-time>\n'+
+  '          <flowplayer-timeline-bar class="fp-timeline fp-bar" role="slider" aria-label="Seek slider">\n'+
+  '            <div class="fp-buffer" style="width:97%;"></div>\n'+
+  '            <div class="fp-progress fp-color" style="width:23%;"><div class="fp-dragger fp-color"></div></div>\n'+
+  '          </flowplayer-timeline-bar>\n'+
+  '          <flowplayer-control-duration class="fp-duration" aria-hidden="true" style="display:inline-block;">05:42</flowplayer-control-duration>\n'+
+  '          <flowplayer-volume-control class="fp-volume-control">\n'+
+  '            <flowplayer-volume-icon class="fp-icon fp-volume-mute-unmute fp-volumebtn" aria-label="Muted"></flowplayer-volume-icon>\n'+
+  '            <flowplayer-volume-bar class="fp-volume">\n'+
+  '              <i class="fp-tick fp-color"></i><i class="fp-tick fp-color"></i><i class="fp-tick fp-color"></i>\n'+
+  '              <i class="fp-tick fp-color"></i><i class="fp-tick fp-color"></i><i class="fp-tick fp-color"></i>\n'+
+  '              <i class="fp-tick fp-color"></i><i class="fp-tick fp-color"></i><i class="fp-tick fp-color"></i>\n'+
+  '              <i class="fp-tick fp-color"></i>\n'+
+  '            </flowplayer-volume-bar>\n'+
+  '          </flowplayer-volume-control>\n'+
+  '        </flowplayer-control>\n'+
+  '      </flowplayer-ui>\n'+
+  '    </div>\n'+
+  '  </div>\n'+
+  '  <div class="footer">\n'+
+  '    <div class="footer-logo">Podcast by <a href="https://www.dianomi.com" target="_blank"><img src="https://www.dianomi.com/img/dianomi-max-200x38.png" alt="dianomi logo" style="height:14px;width:auto;"></a></div>\n'+
+  '    <button class="openclose">&times;</button>\n'+
+  '  </div>\n'+
+  '</div>\n'+
+  '<script>\n'+
+  'function vpTogglePlay(){\n'+
+  '  var fp=document.getElementById("fp-preview");\n'+
+  '  var overlay=document.querySelector(".dianomi-video-overlay");\n'+
+  '  if(!fp) return;\n'+
+  '  if(fp.classList.contains("is-paused")){\n'+
+  '    fp.classList.remove("is-paused"); fp.classList.add("is-playing");\n'+
+  '    if(overlay) overlay.style.display="none";\n'+
+  '  } else {\n'+
+  '    fp.classList.remove("is-playing"); fp.classList.add("is-paused");\n'+
+  '  }\n'+
+  '}\n'+
+  '<\\/script>\n'+
+  '</body>\n</html>';
+}
+
 // ─────────────────────────────────────────────
 // EDITOR ACCESSORS
 // ─────────────────────────────────────────────
@@ -1143,7 +1314,12 @@ function schedRender(){clearTimeout(renderTimer);renderTimer=setTimeout(doRender
 
 function doRender(){
   var css=getCSS(),hdr=getHeader();
-  var html=buildHTML(css,hdr,S.numAds,S.charLen,S.provLen,S.order);
+  // Branch on previewMode — the two paths are completely independent.
+  // 'smartad' follows the existing buildHTML() path unchanged.
+  // 'video' uses buildVideoHTML() with a static podcast DOM template.
+  var html = (previewMode === 'video')
+    ? buildVideoHTML(css, hdr)
+    : buildHTML(css,hdr,S.numAds,S.charLen,S.provLen,S.order);
   if(cmHTMLout){try{cmHTMLout.setValue(html);}catch(e){}}
   var blob=new Blob([html],{type:'text/html'});
   var url=URL.createObjectURL(blob);
@@ -1377,7 +1553,8 @@ async function generateCSS(){
         heightPx: dimH,
         unitType: S.unitType,
         model: document.getElementById('gemini-model-refine').value,
-        userNote: document.getElementById('gen-note').value.trim()
+        userNote: document.getElementById('gen-note').value.trim(),
+        previewMode: previewMode
       })
     });
 
@@ -1515,7 +1692,8 @@ async function refineCSS(){
         heightPx: lastGenHeightPx,
         unitType: S.unitType,
         round: refineRound,
-        model: document.getElementById('gemini-model-refine-2').value
+        model: document.getElementById('gemini-model-refine-2').value,
+        previewMode: previewMode
       })
     });
 
@@ -1668,7 +1846,8 @@ async function applyBreakpointReference(){
         breakpointTier: tier,
         breakpointPx: breakpointPx,
         breakpointWidth: bpWidth,
-        breakpointHeight: bpHeight
+        breakpointHeight: bpHeight,
+        previewMode: previewMode
       })
     });
 
