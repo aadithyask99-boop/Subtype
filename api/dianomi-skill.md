@@ -1550,6 +1550,14 @@ Dianomi runs two distinct embed architectures. The smartad unit is a div injecte
 
 There are two nested iframes in the live embed: an outer wrapper iframe, then an inner document iframe — the one that contains `.dianomi_video` and where the CSS applies. Confirmed via DevTools, July 2026.
 
+### CRITICAL — LOAD ORDER: `flowplayer.css` LOADS AFTER PARTNER CSS, NOT BEFORE
+
+**Confirmed directly from the live unit's `<head>` order via DevTools (2026-07-15):** `dianomi-video.css` → **partner CSS** → `flowplayer.css`. Flowplayer's own base stylesheet loads LAST, after the partner CSS file. This is the mirror-image problem of the `div[id^="dv_"]` specificity issue above: any rule Flowplayer's own CSS sets on `.fp-controls`, `.fp-play`, `.fp-pause`, `.fp-timeline`, `.flowplayer` itself, etc. — on EQUAL specificity — will silently beat a partner CSS override, because Flowplayer's rule loads later in the cascade and source order is the tiebreaker when specificity ties.
+
+**Practical effect:** if you want to meaningfully restyle Flowplayer's native controls area (`.fp-controls` height/padding, `.fp-play`/`.fp-pause` size or icon), a plain override is not reliable — use `!important`, or increase specificity to beat Flowplayer's own selector. Where dianomi-video.css already uses `!important` for something (like `background-size:contain` on audio players), that already wins regardless of this load-order issue — `!important` rules always beat non-`!important` rules of any specificity, load order doesn't matter for those. This only matters for the many Flowplayer rules that do NOT use `!important`.
+
+**Subtype's preview now loads Flowplayer's real base CSS too** (`FLOWPLAYER_BASE_CSS` in `index.html`, added 2026-07-15), in the correct order matching production — dianomi-video.css, then your CSS, then flowplayer.css — so the preview now genuinely reflects this constraint rather than silently succeeding where production would fail.
+
 ### CRITICAL — SPECIFICITY: MANY BASE RULES ARE SCOPED WITH `div[id^="dv_"]` AND BEAT PLAIN CLASS OVERRIDES
 
 **This is the single most common cause of "my CSS is correct but the live preview/production still shows the base style."** A large portion of `dianomi-video.css` scopes its rules with the attribute selector `div[id^="dv_"]` (matching the unit's real `id="dv_91470"`-style ID). An attribute selector counts the same as a class in CSS specificity math — so `div[id^="dv_"] .dianomi-cta-text` has specificity **(0,2,0)**, which is HIGHER than a plain `.dianomi-cta-text { }` override at **(0,1,0)**. CSS resolves conflicts by specificity FIRST, source order only as a tiebreaker when specificity is equal — loading your CSS after the base stylesheet does NOT help if the base rule is simply more specific. This was discovered directly from a broken live test (2026-07-15): the CTA button and headline color silently kept the base style even with a "correct" override present.
