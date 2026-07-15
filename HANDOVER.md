@@ -709,14 +709,50 @@ Four files changed, all additive — no existing smartad logic modified:
 ---
 
 ```
-/public/index.html          ~2336 lines. Everything UI-related, including the Original/Custom/lock system + Video/Podcast preview mode.
-/api/generate-css.js        ~822 lines. Initial generation endpoint, 8 few-shot reference examples + previewMode=video branch.
-/api/refine-css.js          ~416 lines. Refinement endpoint + previewMode=video branch.
-/api/dianomi-skill.md       ~2181 lines. System prompt knowledge base, Patterns A–J + full Video/Podcast unit section.
+/public/index.html          ~2386 lines. Everything UI-related, including the Original/Custom/lock system + Video/Podcast preview mode + real Dianomi base video CSS baseline.
+/api/generate-css.js        ~830 lines. Initial generation endpoint, 8 few-shot reference examples + previewMode=video branch (corrected 2026-07-15).
+/api/refine-css.js          ~425 lines. Refinement endpoint + previewMode=video branch (corrected 2026-07-15).
+/api/dianomi-skill.md       ~1866 lines. System prompt knowledge base, Patterns A–J + Video/Podcast unit section (deduplicated + corrected 2026-07-15).
 /api/reference-images/      8 JPEG files, ~530KB total base64 (example-1 through example-8-asymmetric-grid-span).
 /vercel.json                Routing + 60s function timeouts.
 /HANDOVER.md                This file.
 ```
+
+## Session Log — 2026-07-15: Video/Podcast Preview Was Missing the Real Base Stylesheet — Found and Fixed
+
+### The bug, as reported
+
+After the Video/Podcast mode shipped, pasting the "production-ready" dark navy CSS from the previous session into Subtype's video preview produced a visibly broken layout: the play icon floated at the top-left corner instead of being positioned sensibly, no waveform bars were visible, and the cover image filled almost the entire preview with no player chrome visible over it. Screenshot evidence: `Screenshot_2026-07-15_at_10_41_21.png`.
+
+### Root cause
+
+`buildVideoHTML()` in `index.html` only ever injected the person's own CSS into the preview `<style>` block — it never loaded Dianomi's real base stylesheet (`dianomi-video.css`), which in production always loads BEFORE the partner CSS and provides essential default positioning and behavior (the podcast-overlay's bottom-bar placement, the video body's aspect ratio, the hidden center play button, etc.). Every CSS example written in the previous session — the `dianomi-skill.md` documentation, the generate/refine prompts, and the CSS handed directly to the person — was built on GUESSED assumptions about what that base stylesheet provided, since it had never actually been fetched and read. Some guesses were reasonable; several were wrong.
+
+### Fetching the real base stylesheet — what was actually wrong
+
+Fetched `https://www.dianomi.com/css/dianomi-video.css` directly and compared it against everything written previously. Corrections, in order of impact:
+
+1. **`.dianomi-video-background` is a BLURRED, DARKENED, SCALED ambient backdrop** (`filter:blur(5px) brightness(0.7); transform:scale(1.1)`) — previously documented and coded as if it were the crisp foreground cover image. It is not. The actual sharp image lives on `.flowplayer` itself via an inline `background-image`.
+2. **`background-size` for the sharp cover art is FORCED to `contain` with `!important`** on `.flowplayer.is-audio-player:not(.ad-linear)` — cannot be `cover` without also using `!important`. Previous CSS assumed `cover` was achievable.
+3. **`.dianomi-video-body` already has `aspect-ratio: 16/9`** from the base stylesheet directly — previous CSS used a `padding-top: 56%` trick on a child element, which was redundant and slightly wrong (56% vs the real 56.25%).
+4. **`.dianomi-video-overlay.podcast-overlay` is a 60px bar pinned to the BOTTOM**, not a full-height centered overlay — this is the actual root cause of the play icon appearing in the wrong place in the screenshot. Previous CSS only set `z-index:4` on it, assuming full centering that doesn't exist.
+5. **The large center play/pause button is hidden by the base stylesheet with `!important`** (`.fp-switch .fp-play, .fp-switch .fp-pause, .fp-left-zone, .fp-right-zone { display:none !important; }`) — any design assuming a big center play circle silently fails without an explicit `!important` override.
+6. **`#dianomi-audio-wave` covers the FULL player area at low opacity**, not a small strip — the "always hide it" guidance was still correct, but the described original purpose was wrong.
+7. **`.fp-controls` already gets `rgba(0,0,0,0.5)` background from the base stylesheet** — previous CSS re-declared a background on `.flowplayer.is-audio-player` itself, targeting the wrong element for that effect.
+
+### The fix — three parts
+
+**1. `buildVideoHTML()` now loads the real base stylesheet.** Added a `BASELINE_VIDEO_CSS` constant in `index.html` containing the verbatim content fetched from `dianomi-video.css` (with only the sub-460px mobile media queries omitted, since Subtype's preview width is fully controllable via the W slider rather than relying on that breakpoint). It's injected in its own `<style>` block, loaded BEFORE the person's CSS — mirroring production's exact load order. **If Dianomi ever updates their real stylesheet, this constant needs to be re-fetched and replaced wholesale** — it's a snapshot, not a live link, since the preview needs to work offline/instantly without a network dependency mid-render.
+
+**2. A genuine design correction, not just a bug fix.** Rather than fighting the base stylesheet's blur/scale/contain/bottom-bar behavior, the corrected Direction 2 CSS leans into it — the blurred, scaled backdrop behind a sharp contained cover image is the same visual pattern Spotify/Apple Music use for "now playing" screens, and it was already available for free. The corrected CSS is in `dianomi-skill.md`'s Video/Podcast section (production example) and was handed to the person directly for testing.
+
+**3. Also found and fixed: the Video/Podcast section in `dianomi-skill.md` had been accidentally duplicated** — two separate append attempts earlier in the previous session both landed (one via a `bash_tool` heredoc that appeared to fail but actually partially wrote content, one via a Python-based retry). ~350 lines of duplicate content had been sitting in the file across multiple pushes. Removed the first (older, less-corrected) copy entirely and rewrote the remaining copy with all the corrections above. Also corrected `generate-css.js`'s and `refine-css.js`'s video prompts with the same facts, so Gemini generations for this unit type stop making the same wrong assumptions.
+
+### Lesson for future sessions
+
+**Never document or generate CSS against a base stylesheet that hasn't actually been fetched and read.** The original Video/Podcast work was built entirely from DOM inspection (`document.querySelector('.dianomi_video').outerHTML`) without ever pulling the CSS file that governs that DOM's default behavior. DOM structure alone doesn't tell you what's already styled by the platform versus what the partner CSS needs to provide — that distinction can only come from the actual base stylesheet. This same lesson applies if a third unit type is ever added: fetch and read the real base CSS FIRST, before writing any documentation or example code against assumptions.
+
+---
 
 ## Environment Variables (Vercel)
 - `GEMINI_API_KEY` — Google Gemini API key
