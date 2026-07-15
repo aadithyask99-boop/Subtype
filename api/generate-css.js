@@ -517,6 +517,16 @@ Be concise in the final output — 50-80 rules max, no commentary, just CSS.` + 
 
 This is NOT a smartad unit. The selectors .wrapper, .hero, .subhero, .dianomihref, .maintext, .dianomi_provider_short, .line2, .sub-line2, .action DO NOT EXIST in this unit's DOM. Using them produces a CSS file that silently targets nothing. Do not use any of them.
 
+A REAL BASE STYLESHEET (dianomi-video.css) LOADS BEFORE YOUR CSS. Your CSS only needs to override what it doesn't already handle correctly. Fighting its structural assumptions produces broken results even with correct selectors. Key facts from that base stylesheet, verified directly (not guessed):
+
+1. .dianomi-video-background is a BLURRED, DARKENED, SCALED ambient backdrop layer — filter:blur(5px) brightness(0.7); transform:scale(1.1) — NOT the sharp cover image. Tint/darken it with background-color if you want a color wash; don't try to make it crisp by removing the blur unless explicitly asked, since the blur is an intentional "now playing" style ambient effect already provided.
+2. The SHARP cover art lives on .flowplayer itself via an inline background-image Dianomi's JS sets. background-size for audio players is FORCED to "contain" by the base stylesheet with !important — you cannot make it "cover" without also writing !important yourself, and doing so fights the intended design (avoids cropping square cover art). Design around contain.
+3. .dianomi-video-body already has aspect-ratio:16/9 from the base stylesheet. Do not add your own aspect-ratio hack.
+4. .dianomi-video-overlay.podcast-overlay is a 60px bar pinned to the BOTTOM of the player, not a full-height centered overlay. Style it as a horizontal strip (icon + "Play Podcast" label side by side), not a large centered icon+label stack.
+5. The large center play/pause button (.fp-switch .fp-play / .fp-pause) and rewind/fast-forward zones are hidden by the base stylesheet with !important. Do not attempt to show a center play button — the bottom overlay bar is the intended sole play trigger before playback starts.
+6. .fp-controls already has a translucent black background (rgba(0,0,0,0.5)) from the base stylesheet. Don't re-declare this on .flowplayer.is-audio-player itself.
+7. #dianomi-audio-wave covers the full player area at low opacity by default — always hide it: display:none !important.
+
 THE REAL DOM (confirmed from live unit, use these selectors only):
 - .dianomi_video                    outermost container
 - .dianomi-text-wrapper             entire text zone
@@ -525,28 +535,26 @@ THE REAL DOM (confirmed from live unit, use these selectors only):
 - .header-image-container img       advertiser logo image
 - .dianomi-cta-text a               CTA link ("Listen further" / "Listen Now")
 - .dianomi-main-text a              episode title link
-- .dianomi-video-body               player container (must be position:relative)
-- .dianomi-video-background         cover art (background-image set inline by Dianomi — not an img tag)
-- .dianomi-video-background::after  overlay/scrim on cover art
-- .dianomi-video-overlay            click-to-start overlay (visible before first play)
-- .dianomi-video-overlay--replay img   play icon inside overlay
+- .dianomi-video-body               player container (base already sets aspect-ratio:16/9, position:relative, overflow:hidden)
+- .dianomi-video-background         BLURRED backdrop layer (see fact 1 above) — not the sharp image
+- .dianomi-video-overlay.podcast-overlay   60px BOTTOM bar (see fact 4) — style as horizontal strip
+- .dianomi-video-overlay--replay img   play icon inside the overlay bar
 - .dianomi-video-overlay--replay div:last-child   "Play Podcast" text label
 - #dianomi-audio-wave               Dianomi GIF waveform — ALWAYS display:none !important
-- .dw-wave                          custom waveform container (injected by Header Html script)
+- .dw-wave                          custom waveform container (injected by Header Html script) — position it ABOVE the 60px bottom bar (e.g. bottom:68px), never overlapping it
 - .dw-bar                           individual waveform bar elements
-- .flowplayer.is-audio-player       Flowplayer container
+- .flowplayer.is-audio-player       the actual player — sharp cover art via inline background-image, size forced to contain
 - .flowplayer.is-playing .dw-bar    playing state — animate bars
 - .flowplayer.is-paused .dw-bar     paused state — static bars
-- flowplayer-control.fp-controls    controls bar
-- .fp-progress.fp-color             progress fill (width% = playback %)
+- .fp-controls                      already styled by base — adjust only if needed, don't duplicate its background
+- .fp-progress.fp-color             progress fill — base defaults to red #ee3224, override this color if it should match your palette
 - .footer                           "Podcast by Dianomi" footer — usually display:none
 - .openclose                        close button — usually display:none
 
-KEY FACTS:
-1. .dianomi-video-background is a div, not an img. Cover art is a background-image set inline by Dianomi's JS. Control its display via background-size, background-position, and padding-top (aspect ratio trick). Add overlays via ::after.
-2. .flowplayer adds/removes is-playing and is-paused automatically during real playback. CSS rules using .flowplayer.is-playing react to real audio state with zero JS from your side.
-3. .dw-bar elements are injected by a Header Html script — not present in the default DOM, but present whenever the script runs. Write CSS for them assuming they exist.
-4. body must always be: height:auto; overflow-x:hidden; overflow-y:hidden — never overflow:visible.
+ADDITIONAL RULES:
+- .flowplayer adds/removes is-playing and is-paused automatically during real playback. CSS rules using .flowplayer.is-playing react to real audio state with zero JS from your side.
+- .dw-bar elements are injected by a Header Html script — not present in the default DOM, but present whenever the script runs. Write CSS for them assuming they exist.
+- body must always be: height:auto; overflow-x:hidden; overflow-y:hidden — never overflow:visible.
 
 FORMATTING RULES (same as always):
 - Every rule spans multiple lines: selector, brace, one property per line, closing brace, blank line
