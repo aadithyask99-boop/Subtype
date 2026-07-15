@@ -718,6 +718,42 @@ Four files changed, all additive — no existing smartad logic modified:
 /HANDOVER.md                This file.
 ```
 
+## Session Log — 2026-07-15 (continued): CSS Specificity Bug — `div[id^="dv_"]` Prefixed Base Rules Beat Plain Overrides
+
+### The bug, as reported
+
+After the base-stylesheet fix above shipped, the person tested the corrected dark navy CSS and reported it still didn't look right — screenshot evidence: `Screenshot_2026-07-15_at_10_57_26.png`. Specifically: the "Listen further" CTA button still showed the base white background with a dark border instead of the intended transparent/white-text pill, and the episode headline was still the base's dim gray (`#555`) instead of white. The advertiser logo also rendered as a washed-out gray box instead of a clean white silhouette.
+
+### Root cause — a genuine specificity bug, not a loading-order problem
+
+Checked the actual base stylesheet rules for the affected elements:
+```css
+div[id^="dv_"] .dianomi-cta-text { border: 1px solid #222; background: white; ... }
+div[id^="dv_"] .dianomi-cta-text a { color: #333333; ... }
+div[id^="dv_"] .dianomi-main-text a { color: #555; ... }
+```
+
+Dianomi scopes a large portion of `dianomi-video.css` with the attribute selector `div[id^="dv_"]`, matching the unit's real dynamic ID (`id="dv_91470"`). An attribute selector contributes to CSS specificity exactly like a class does — so `div[id^="dv_"] .dianomi-cta-text` has specificity **(0,2,0)**, strictly higher than a plain `.dianomi-cta-text { }` override at **(0,1,0)**. CSS resolves conflicting rules by specificity FIRST; source order is only a tiebreaker when specificity is equal. The corrected CSS from the previous fix loaded after the base stylesheet, but that didn't matter — the base rule was simply more specific and won regardless of load order. The previous "correction" had fixed the *structural* assumptions (blur, contain, bottom-bar overlay) but had not accounted for this specificity gap, since it hadn't been discovered yet.
+
+Separately: the logo filter (`filter: brightness(10)`) was too aggressive — `brightness(10)` means 1000% brightness, which blows an image out to a washed-out block rather than converting it to a clean silhouette. The correct technique, already used correctly elsewhere in the same CSS for the play icon, is `filter: brightness(0) invert(1)` — brightness(0) makes the image pure black first, then invert(1) flips that cleanly to white.
+
+### The fix
+
+Confirmed the exact list of base rules using the `div[id^="dv_"]` prefix by reading the fetched stylesheet directly (not guessed): `.dianomi_video`, `.openclose`, `.footer`, `.footer img`, `.dianomi-text-wrapper`, `.dianomi-main-container`, `.dianomi-main-text`, `.dianomi-cta-text`, `.dianomi-main-text a`, `.dianomi-cta-text a`, `.flowplayer`. Every override in the production CSS example now matches that prefix on these specific selectors. Selectors the base stylesheet writes as plain classes (`.dianomi-header-text`, `.header-image-container img`, `.dianomi-video-body`, `.dianomi-video-overlay`, `.dianomi-video-background`) were already working correctly and didn't need the change.
+
+Also fixed the logo filter to `brightness(0) invert(1)` in the same pass.
+
+**Updated in all three files:**
+- `dianomi-skill.md` — new "CRITICAL — SPECIFICITY" section added directly before the base stylesheet section, listing every prefix-requiring selector explicitly. Production example CSS rewritten with correct prefixes.
+- `generate-css.js` — video prompt's fact list gained item 8 (the specificity rule with the full selector list) and item 9 (the correct logo-to-white filter technique).
+- `refine-css.js` — video refine prompt gained the same specificity fact (item 7) with explicit framing for the refine context: "if feedback says a change isn't showing, check this before changing anything else" — since a missing specificity match looks exactly like "my fix didn't work" from the outside, and a model naively re-generating from scratch rather than diagnosing the real cause would waste a round.
+
+### Lesson for future sessions (generalizes beyond this specific unit)
+
+**When a base/platform stylesheet exists that the partner CSS loads after, always check whether the base stylesheet's selectors use anything beyond plain classes — IDs, attribute selectors, tag-qualified selectors, `:not()`, multiple chained classes — since all of these increase specificity beyond what a simple matching-class override can beat.** Source order alone is not a reliable way to guarantee an override wins; specificity must be checked explicitly, ideally by reading the actual base stylesheet rather than inferring it from rendered behavior. This is the second time in this Video/Podcast integration that "read the real base file, don't infer from DOM/behavior alone" was the actual lesson — worth remembering as a standing principle for any future third unit type.
+
+---
+
 ## Session Log — 2026-07-15: Video/Podcast Preview Was Missing the Real Base Stylesheet — Found and Fixed
 
 ### The bug, as reported
