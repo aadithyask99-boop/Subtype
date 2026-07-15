@@ -151,10 +151,12 @@ A REAL BASE STYLESHEET (dianomi-video.css) LOADS BEFORE THIS CSS. Key facts, ver
 4. .dianomi-video-overlay.podcast-overlay is a 60px BOTTOM bar, not a full-height centered overlay. Keep it styled as a horizontal strip.
 5. The center play/pause button is hidden by base CSS with !important — do not try to show it.
 6. .fp-controls already has rgba(0,0,0,0.5) background from base — don't duplicate this elsewhere.
+7. CRITICAL SPECIFICITY: base scopes many rules with div[id^="dv_"] (matches the unit's real id, e.g. id="dv_91470") — this attribute selector has the same specificity weight as a class, so div[id^="dv_"] .dianomi-cta-text (0,2,0) beats a plain .dianomi-cta-text override (0,1,0) REGARDLESS of source order. If feedback says a color/background/style change "isn't showing" or "still looks like the old style" for any of these selectors, check whether you're missing this prefix before changing anything else — that is very likely the actual cause: .dianomi_video, .openclose, .footer, .footer img, .dianomi-text-wrapper, .dianomi-main-container, .dianomi-main-text, .dianomi-cta-text, .dianomi-main-text a, .dianomi-cta-text a, .flowplayer. Selectors NOT in that list (.dianomi-header-text, .header-image-container img, .dianomi-video-body, .dianomi-video-overlay, .dianomi-video-background) don't need the prefix.
+8. To make a logo appear white on a dark background, use filter: brightness(0) invert(1) — not a high brightness value like brightness(10), which washes it out into a gray box instead of a clean white silhouette.
 
 CORRECT SELECTORS FOR THIS UNIT:
-.dianomi_video, .dianomi-text-wrapper, .dianomi-header-container, .dianomi-header-text,
-.header-image-container img, .dianomi-cta-text a, .dianomi-main-text a,
+div[id^="dv_"].dianomi_video, div[id^="dv_"] .dianomi-text-wrapper, .dianomi-header-container, .dianomi-header-text,
+.header-image-container img, div[id^="dv_"] .dianomi-cta-text a, div[id^="dv_"] .dianomi-main-text a,
 .dianomi-video-body, .dianomi-video-background (blurred backdrop, see fact 1),
 .dianomi-video-overlay.podcast-overlay (60px bottom bar, see fact 4),
 .dianomi-video-overlay--replay img, .dianomi-video-overlay--replay div:last-child,
@@ -162,7 +164,7 @@ CORRECT SELECTORS FOR THIS UNIT:
 .dw-wave (position above the 60px bottom bar, e.g. bottom:68px), .dw-bar,
 .flowplayer.is-audio-player, .flowplayer.is-playing .dw-bar, .flowplayer.is-paused .dw-bar,
 .fp-controls, .fp-progress.fp-color (base defaults to red, override if needed),
-.footer (usually display:none), .openclose (usually display:none)
+div[id^="dv_"] .footer (usually display:none), div[id^="dv_"] .openclose (usually display:none)
 
 ALWAYS REQUIRED REGARDLESS OF FEEDBACK:
 - #dianomi-audio-wave { display: none !important; }
