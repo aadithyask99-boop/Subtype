@@ -718,6 +718,21 @@ Four files changed, all additive — no existing smartad logic modified:
 /HANDOVER.md                This file.
 ```
 
+## Session Log — 2026-07-15 (continued 2): flowplayer.css Was Also Missing — Same Class of Bug, Opposite Direction
+
+While attempting to replicate two earlier mockup designs against the real unit, checked the actual `<head>` load order captured earlier via DevTools and noticed: `dianomi-video.css` → **partner CSS** → `flowplayer.css`. Flowplayer's own base stylesheet loads AFTER the partner CSS, not before — the mirror image of the `div[id^="dv_"]` specificity bug fixed earlier today. Any Flowplayer rule on `.fp-controls`, `.fp-play`, `.fp-pause`, `.fp-timeline`, `.flowplayer` without `!important` can silently beat a partner CSS override on equal specificity, purely from source order.
+
+**Fetched Flowplayer's real base CSS** (`cdn.flowplayer.com/.../style/flowplayer.css`), trimmed to audio-player-relevant rules (video/fullscreen/ad/menu/playlist/casting rules removed — irrelevant to this unit type), and added it to `buildVideoHTML()` as `FLOWPLAYER_BASE_CSS`, loaded in the correct position — **after** the person's CSS, matching confirmed production order exactly:
+```
+BASELINE_VIDEO_CSS (dianomi-video.css) → person's CSS → FLOWPLAYER_BASE_CSS (flowplayer.css)
+```
+
+Documented in `dianomi-skill.md` (new section immediately before the `div[id^="dv_"]` specificity section), and added as fact 10 / fact 9 respectively to `generate-css.js`'s and `refine-css.js`'s video prompts.
+
+**Pattern worth naming explicitly:** this is the third time today the same root lesson has surfaced in a new location — a base/platform stylesheet the partner CSS depends on had never actually been fetched and read, and everything downstream (documentation, generated CSS, direct answers to the person) was built on inference instead. First time: `dianomi-video.css` itself. Second time: the `div[id^="dv_"]` specificity pattern within it. Third time: `flowplayer.css`'s load position relative to the partner CSS. **Any future third unit type should have ALL of its base/platform stylesheets fetched and read completely before any documentation or generation logic is written against it — not incrementally discovered through repeated live-test failures.**
+
+---
+
 ## Session Log — 2026-07-15 (continued): CSS Specificity Bug — `div[id^="dv_"]` Prefixed Base Rules Beat Plain Overrides
 
 ### The bug, as reported
