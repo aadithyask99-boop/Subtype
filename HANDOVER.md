@@ -624,16 +624,95 @@ Both use `.sub-line2`. Differentiate by `width` on `.sub-line2 img.dianomi-lg`:
 10. **Refine's auto-redirect to Custom on locked units** *(added 2026-07-09)* — in `refineCSS()`, the check `if(effectiveLockedUnit() && S.unitType !== 'custom')` must run before the API call is made. Removing it would let feedback be sent against a read-only IAB/Responsive preview, which would either silently do nothing useful or (worse) get applied somewhere the person didn't intend.
 11. **`changeObj.origin === 'setValue'` check in the CodeMirror change handler** *(added 2026-07-09)* — this is what stops IAB/Responsive/Original's programmatic `setCSS()` calls from being mistaken for hand-edits and corrupting `customCSS`. Do not remove or weaken this check.
 12. **`body { overflow-x: hidden; overflow-y: hidden }` — do NOT revert to `overflow: visible`** *(added 2026-07-10)*. This looks like it should be the more "permissive"/safer choice, and was in fact the previous guidance (see rule 8 in `dianomi-skill.md`) — but `overflow:visible` is what causes a visible scrollbar on live units due to the iframe height-sync race condition (see 2026-07-10 session log below). `height:auto` should still never be hardcoded to a fixed px value, but `overflow` must stay `hidden` on both axes.
+13. **`buildVideoHTML()` must never share logic with `buildHTML()`** *(added 2026-07-15)*. They target completely different DOMs. Any attempt to merge them, share a template string, or have one call the other will corrupt both preview modes. They must remain fully independent functions.
+14. **`switchPreviewMode()` must always clear `originalCSS`/`customCSS`/`lockedUnit` on switch** *(added 2026-07-15)*. The SmartAd and Video DOM share zero selectors. A smartad CSS file silently targets nothing in the video preview and vice versa. Stale snapshots from one mode appearing in the other are actively misleading and would make the lock/unlock system behave incorrectly. Never remove the reset from `switchPreviewMode()`.
+15. **Video generate/refine prompt branches must always return before smartad logic** *(added 2026-07-15)*. In both `generate-css.js` and `refine-css.js`, the `if(previewMode === 'video')` block ends with `return` after streaming. If that `return` is ever removed, execution falls through into the smartad few-shot chain, which would send the wrong selectors to Gemini for a video unit. The early-return is load-bearing.
 
 ---
 
-## File Map
+## Session Log — 2026-07-14/15: Video/Podcast Unit — Research, Design, and Subtype Integration
+
+### Background
+
+Started from a publisher request to redesign the podcast unit. The podcast unit shares Dianomi's video embed architecture — same Flowplayer JS, same iframe structure — with `.dianomi-audio` added as a class and an `.mp3` source instead of video. Confirmed via source inspection of live unit 91470 on the Dianomi Help Centre context feed (`context.epl?id=4948`).
+
+### The embed architecture (and why it matters for CSS targeting)
+
+The unit sits inside two nested iframes:
+```
+outer publisher page
+  └─ iframe.dianomi-parent-iframe   (outer wrapper, about:blank document)
+       └─ iframe                    (innermost — this is where the CSS applies)
+            └─ <link href="dianomi-video.css">
+               <link href="/img/a/pss/NNNN/NN.css">  ← partner CSS Subtype generates
+               <link href="flowplayer.css">
+               <script src="flowplayer.min.js">
+               div.dianomi_video ...
+```
+
+The partner CSS file loads inside the innermost document as one `<link>` tag. Dianomi's backend assembles the full HTML including Flowplayer, cover art, audio source, and all player logic. Our deliverable is purely CSS — no JS, no backend changes at Dianomi's end. The CSS targets elements inside that innermost iframe document.
+
+### The Flowplayer class hook
+
+Flowplayer adds and removes `is-playing` and `is-paused` on `.flowplayer` automatically during real playback. `.flowplayer.is-playing .dw-bar { animation: ... }` therefore genuinely reacts to real audio state with zero JS from our side. This was the central design insight — the waveform animation is driven entirely by Flowplayer's own existing class toggling, not by any custom event listener or audio API.
+
+### DOM confirmation
+
+`document.querySelector('.dianomi_video').outerHTML` run in the correct Console frame context returned the full live DOM with real mp3 src, real cover art `background-image` URL, full Flowplayer custom element markup, and all class names. Every selector in `dianomi-skill.md`'s video section and the generate/refine prompts was verified against this output, not guessed or inferred from screenshots.
+
+### The DevTools testing arc
+
+Testing required the correct Console frame context. Chrome's frame dropdown showed `dianomi_video_container_iframe` (the outer wrapper — wrong) and an `about:blank` entry (the innermost document — correct). Chrome labels dynamically-written iframe documents as `about:blank` even when they contain real content, since they weren't loaded via URL navigation. Multiple attempts landed in the wrong frame. Running the injection in the top-level Console painted the outer page's `body` dark while the unit remained unstyled — which confirmed the CSS was reaching the wrong document, not that the CSS itself was wrong.
+
+### The waveform architecture decision
+
+Dianomi's own `#dianomi-audio-wave` is a static GIF — no play/pause reaction, no CSS control. Always hidden with `display:none !important`. Replacement: a Header Html `<script>` injects `<div class="dw-wave">` with N `<div class="dw-bar">` children into `.dianomi-video-body`. Each bar gets a hardcoded height, `--dur`, and `--delay` CSS custom properties. `@keyframes dw-beat` animates via `.flowplayer.is-playing .dw-bar`. No audio API, no Flowplayer event listeners, no coupling to anything beyond the class Flowplayer already toggles. In the Subtype preview, bars are pre-injected in `buildVideoHTML()` — no script needed there.
+
+Why Header Html script rather than pseudo-elements: `::before`/`::after` only give two elements per selector. N bars for a convincing waveform shape requires N real DOM elements.
+
+### Design directions
+
+Three directions prototyped as interactive Claude widgets, then rebuilt against the real DOM class names for the DevTools test:
+
+- **Direction 1 (light editorial):** white background, cover art left (small square), text right, teal CTA border, waveform in the footer area.
+- **Direction 2 (dark navy):** `#0C1520` background, full-width cover art with `padding-top:56%` aspect ratio trick, gradient scrim via `::after`, waveform bars positioned above the Flowplayer controls, `.flowplayer.is-playing .dw-bar` drives teal animation. This is the production-ready direction documented in `dianomi-skill.md`.
+- **Direction 3 (waveform forward):** no image in the primary zone, waveform bars as the main visual identity, works for inconsistent cover art quality.
+
+Key CSS technique for the cover art: `.dianomi-video-background` is a `<div>` with `background-image` set inline by Dianomi's JS at runtime — not an `<img>` element. `padding-top: 56%` creates the aspect ratio spacer. Overlays go on `::after`. This is a fundamental difference from smartad units and is why smartad image selectors (`.hero img`) produce nothing on a video unit.
+
+### What was built into Subtype
+
+Four files changed, all additive — no existing smartad logic modified:
+
+**`dianomi-skill.md`** — ~641 lines appended as a clearly-separated new section after all smartad content. Full confirmed DOM structure, every usable CSS selector with reasoning, Flowplayer state classes, waveform architecture with the actual injection script, smartad-vs-video comparison table, body rule reasoning, and the complete dark navy production CSS example for Gemini to learn from.
+
+**`generate-css.js`** — `previewMode` added to request destructuring. `if(previewMode === 'video')` branch runs a focused text-only prompt naming every correct selector AND explicitly forbidding every smartad selector by name, then returns early before any smartad logic or few-shot chain. The existing 8-example smartad few-shot system is completely untouched.
+
+**`refine-css.js`** — same early-return pattern with a `VIDEO_REFINE_SYSTEM` prompt using the video selector set and the standard copy-then-patch methodology. `REFINE_SYSTEM` below it is never reached in video mode.
+
+**`index.html`** — four additive changes:
+- `var previewMode = 'smartad'` state variable
+- `switchPreviewMode(mode)` — clears snapshots on switch (two DOMs share zero selectors; stale state is actively misleading), updates toggle buttons, shows/hides play button
+- `buildVideoHTML(css, hdrHtml)` — fully separate from `buildHTML()`, generates real `.dianomi_video` DOM shell with pre-injected waveform bars and inline `vpTogglePlay()` script
+- `doRender()` branch: video → `buildVideoHTML()`, smartad → `buildHTML()` unchanged
+- SmartAd / Video·Podcast toggle buttons in the preset bar
+- Play/Pause preview button below iframe, only visible in video mode, calls `vpPreviewToggle()` which reaches into `iframe.contentWindow.vpTogglePlay()`
+
+### What is intentionally NOT in this build
+
+**A reference image for the video few-shot chain** — `generate-css.js` has 8 smartad reference images. The video branch uses a text-only prompt for now. A screenshot of the dark navy direction on the real live unit would meaningfully improve generation quality and should be added once the CSS direction is confirmed production-ready (same process as any previous reference image addition).
+
+**IAB/Responsive/Custom/Original tab adaptation for video mode** — the local converters (`convertToIABLocal`/`convertToResponsiveLocal`) operate on whatever CSS is in the editor regardless of `previewMode`. They'd strip `.flowplayer.is-playing` rules in IAB mode just as they strip smartad media queries — that's not desirable for a video unit but fixing it requires either disabling the tabs in video mode or making the converters mode-aware. Left for a future session.
+
+**Num Ads / Element Order controls in video mode** — these remain visible but have no effect on `buildVideoHTML()`, which uses hardcoded content. Conditionally hiding them was considered and deferred — the extra UI branching adds complexity for controls the user can simply ignore in video mode.
+
+---
 
 ```
-/public/index.html          ~2120 lines. Everything UI-related, including the Original/Custom/lock system.
-/api/generate-css.js        ~725 lines. Initial generation endpoint, 8 few-shot reference examples.
-/api/refine-css.js          ~325 lines. Refinement endpoint.
-/api/dianomi-skill.md       ~1540 lines. System prompt knowledge base, Patterns A–J.
+/public/index.html          ~2336 lines. Everything UI-related, including the Original/Custom/lock system + Video/Podcast preview mode.
+/api/generate-css.js        ~822 lines. Initial generation endpoint, 8 few-shot reference examples + previewMode=video branch.
+/api/refine-css.js          ~416 lines. Refinement endpoint + previewMode=video branch.
+/api/dianomi-skill.md       ~2181 lines. System prompt knowledge base, Patterns A–J + full Video/Podcast unit section.
 /api/reference-images/      8 JPEG files, ~530KB total base64 (example-1 through example-8-asymmetric-grid-span).
 /vercel.json                Routing + 60s function timeouts.
 /HANDOVER.md                This file.
